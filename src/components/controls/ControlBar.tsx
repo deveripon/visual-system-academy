@@ -75,7 +75,6 @@ export function ControlBar() {
   const autoplay = useSimStore((s) => s.autoplay);
   const quizMode = useSimStore((s) => s.quizMode);
   const prodMode = useSimStore((s) => s.prodMode);
-  const chaosId = useSimStore((s) => s.chaosId);
   const stepIndex = useSimStore((s) => s.stepIndex);
   const total = useStepCount();
   const step = useCurrentStep();
@@ -153,22 +152,9 @@ export function ControlBar() {
         <Toggle label="Prod" title="Retell the story on a real production stack" on={prodMode} onChange={() => useSimStore.getState().toggleProdMode()} />
       </div>
 
+      {/* Chaos exit lives on the canvas banner (components/overlays/ChaosMenu), which
+          names the scenario in full — a second chip here was redundant. */}
       <div className="ml-auto flex items-center gap-2">
-        {chaosId ? (
-          <button
-            type="button"
-            onClick={() => useSimStore.getState().exitChaos()}
-            className="flex h-8 items-center gap-1.5 rounded-lg border px-2.5 font-[family-name:var(--font-mono)] text-[11px] font-semibold uppercase tracking-wider"
-            style={{
-              borderColor: 'color-mix(in oklab, var(--err) 50%, transparent)',
-              background: 'color-mix(in oklab, var(--err) 14%, transparent)',
-              color: 'var(--err)',
-            }}
-          >
-            chaos: {chaosId} ✕
-          </button>
-        ) : null}
-
         <CtlButton label='Failure injection ("What if?")' onClick={() => useSimStore.getState().setChaosMenuOpen(true)}>
           <Icon path={ICONS.chaos} />
         </CtlButton>

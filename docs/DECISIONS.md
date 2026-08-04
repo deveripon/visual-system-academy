@@ -68,3 +68,15 @@ Record anything the next agent would otherwise have to rediscover.
   reopening a dossier never flashes a loading state.
 - 2026-08-04 — `@theme inline` maps `--font-mono` to itself, so `font-mono` resolves to
   nothing; mono text uses `font-[family-name:var(--font-mono)]` (exported as `MONO`).
+- 2026-08-04 — Scene state (node/edge/zone/aura) is painted SYNCHRONOUSLY by
+  `paintStates()`, shared by jumps and animated steps. A deferred GSAP callback can be
+  killed before it runs, which left several nodes lit at once and the mode aura stale.
+  Motion is decoration on top of a scene that is already correct.
+- 2026-08-04 — `cpu` lives in the kernel zone, not the browser zone: the ring 3 → ring 0
+  flip is the signature moment of the lesson and must light the kernel frame.
+- 2026-08-04 — Untravelled edges sit at 0.11 opacity. 158 connectors at full strength
+  read as spaghetti and bury the one path that matters; they exist to show the graph is
+  dense, not to be individually traced.
+- 2026-08-04 — QA note: browser extensions inject attributes on <body> before hydration
+  (cz-shortcut-listen, Grammarly). `suppressHydrationWarning` on <body> is the fix; it is
+  not an app bug.

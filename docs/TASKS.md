@@ -10,12 +10,12 @@ Claim a task by setting its status to `WIP` with your machine/agent name. Read
 | T1 | Scaffold + deps | *(shared config)* | — | DONE | session |
 | T2 | Docs suite | `docs/**` | — | DONE | session |
 | T3 | Design tokens + app shell | `src/styles/**`, `src/app/**`, `src/components/shell/**`, `src/components/ui/**`, `src/components/controls/ControlBar.tsx` | T2 | DONE | session |
-| T4 | Scene: layout data + SVG canvas | `src/scene/layout.ts`, `src/scene/geometry.ts`, `src/components/canvas/**` *(except AnimationDirector)* | C1–C3 | WIP | agent |
+| T4 | Scene: layout data + SVG canvas | `src/scene/layout.ts`, `src/scene/geometry.ts`, `src/components/canvas/**` *(except AnimationDirector)* | C1–C3 | DONE | session |
 | T5 | Store + engines | `src/state/**`, `src/engine/**` *(except registry)*, `src/components/canvas/AnimationDirector.tsx`, `src/lib/keyboard.ts` | C1–C6 | DONE | session |
-| T6 | Panels (explain / OS state / packet) | `src/components/panels/**` | C1, C4, T3 | WIP | agent |
-| T7 | Timeline + overlays | `src/components/timeline/**`, `src/components/overlays/**`, `src/components/controls/SearchPalette.tsx` | C1, C4, T3 | WIP | agent |
+| T6 | Panels (explain / OS state / packet) | `src/components/panels/**` | C1, C4, T3 | DONE | agent |
+| T7 | Timeline + overlays | `src/components/timeline/**`, `src/components/overlays/**`, `src/components/controls/SearchPalette.tsx` | C1, C4, T3 | DONE | agent |
 | T8 | Content pipeline + integration | `scripts/**`, `src/data/index.ts`, `src/data/generated/**` | C1, C8, C10, all CONTENT-* | DONE | session |
-| T9 | QA + static export | *(nothing — reports only)* | T3–T8 | TODO | |
+| T9 | QA + static export | *(nothing — reports only)* | T3–T8 | DONE | session |
 
 **Note:** `src/scene/modeColors.ts`, `src/scene/layerViews.ts` and `src/engine/registry.ts`
 were written by the integrator (T5) because other modules needed them as contracts —
