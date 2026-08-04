@@ -36,7 +36,7 @@ function traversal(timeline: Step[], index: number) {
 
   for (let i = 0; i <= index && i < timeline.length; i++) {
     const step = timeline[i];
-    const from = step.from ?? prev;
+    const from: NodeId | null = step.from ?? prev;
     if (from && from !== step.node) {
       for (const e of registry.route(from, step.node)) edges.add(e);
     }
