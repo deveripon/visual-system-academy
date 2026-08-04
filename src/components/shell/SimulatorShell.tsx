@@ -17,12 +17,23 @@ import { SearchPalette } from '@/components/controls/SearchPalette';
 import type { Camera } from '@/engine/cameraEngine';
 import { installKeyboard } from '@/lib/keyboard';
 import { useCurrentStep } from '@/state/selectors';
+import { useSimStore } from '@/state/store';
 
 export function SimulatorShell() {
   const cameraRef = useRef<Camera | null>(null);
   const step = useCurrentStep();
 
   useEffect(() => installKeyboard(), []);
+
+  // Picking a layer view frames those zones; 'free' hands control back to step-following.
+  useEffect(() => {
+    let last = useSimStore.getState().layerView;
+    return useSimStore.subscribe((s) => {
+      if (s.layerView === last) return;
+      last = s.layerView;
+      if (s.layerView !== 'free') cameraRef.current?.applyLayerView(s.layerView);
+    });
+  }, []);
 
   return (
     <div className="relative z-10 flex h-full flex-col">
