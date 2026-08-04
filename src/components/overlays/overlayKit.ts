@@ -145,38 +145,6 @@ export function useOverlayFocus<T extends HTMLElement>(
   return ref;
 }
 
-/**
- * A global single-key shortcut that never fires while the learner is typing.
- * Overlays own their own opener so they still work if the shell has not bound the key;
- * handlers must be idempotent (open, never toggle) so a shell binding cannot cancel them.
- */
-export function useGlobalKey(key: string, enabled: boolean, run: () => void): void {
-  const runRef = useRef(run);
-
-  useEffect(() => {
-    runRef.current = run;
-  });
-
-  useEffect(() => {
-    if (!enabled) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== key || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (
-          tag === 'INPUT' ||
-          tag === 'TEXTAREA' ||
-          tag === 'SELECT' ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
-      event.preventDefault();
-      runRef.current();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [key, enabled]);
-}
+/** `font-mono` resolves to a self-referential theme value in globals.css, so mono text
+ *  goes through the custom property directly (same as ControlBar). */
+export const MONO = 'font-[family-name:var(--font-mono)]';

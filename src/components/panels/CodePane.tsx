@@ -206,27 +206,21 @@ export function CodePane({ pane, defaultOpen = false }: CodePaneProps) {
               <Highlight theme={INSTRUMENT_THEME} code={code} language={language}>
                 {({ tokens, getLineProps, getTokenProps }) => (
                   <code className="block w-max min-w-full font-mono">
-                    {tokens.map((line, i) => {
-                      const { key: _lineKey, ...lineProps } = getLineProps({ line });
-                      return (
-                        <span key={i} {...lineProps} className="flex">
-                          <span
-                            aria-hidden="true"
-                            className="mr-3 w-6 shrink-0 text-right text-t3 tabular-nums select-none"
-                          >
-                            {i + 1}
-                          </span>
-                          <span className="whitespace-pre">
-                            {line.map((token, k) => {
-                              const { key: _tokenKey, ...tokenProps } = getTokenProps({
-                                token,
-                              });
-                              return <span key={k} {...tokenProps} />;
-                            })}
-                          </span>
+                    {tokens.map((line, i) => (
+                      <span key={i} {...getLineProps({ line })} className="flex">
+                        <span
+                          aria-hidden="true"
+                          className="mr-3 w-6 shrink-0 text-right text-t3 tabular-nums select-none"
+                        >
+                          {i + 1}
                         </span>
-                      );
-                    })}
+                        <span className="whitespace-pre">
+                          {line.map((token, k) => (
+                            <span key={k} {...getTokenProps({ token })} />
+                          ))}
+                        </span>
+                      </span>
+                    ))}
                   </code>
                 )}
               </Highlight>

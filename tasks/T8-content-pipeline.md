@@ -5,8 +5,8 @@ app imports — and make that conversion reproducible on any machine.
 
 ## OWNS
 
-- `scripts/convert-content.mjs`
-- `src/data/index.ts`, `src/data/validate.ts`, `src/data/generated/**`
+- `scripts/convert-content.mjs`, `scripts/validate-content.mjs`, `scripts/chaos-entry-map.mjs`
+- `src/data/index.ts`, `src/data/generated/**`
 - the `convert` / `validate` npm scripts (request the `package.json` edit via `_INBOX.md`
   if you are not the integrator)
 
@@ -43,7 +43,9 @@ export const getComponents: () => Promise<ComponentMap>;   // lazy chunk, idle-p
 Dossier merge order: `COMPONENTS` → `COMPONENTS_B` → `COMPONENTS_C` (later wins).
 Run `validateContent()` in dev only.
 
-**`src/data/validate.ts`** — dev-only, throws with the offending id:
+**`scripts/validate-content.mjs`** — runs standalone against `content/src/` (so content
+agents on any machine can check their work without a build), exits non-zero with the
+offending id:
 
 - step ids unique across every file
 - `node` / `from` ∈ `NodeId`; every `related` id ∈ `NodeId`
