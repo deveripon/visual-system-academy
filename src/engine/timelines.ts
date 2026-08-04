@@ -46,6 +46,27 @@ function traversal(timeline: Step[], index: number) {
   return { visited, edges };
 }
 
+/** Apply the node/edge/zone/aura state implied by a step. Always synchronous. */
+function paintStates(step: Step, visited: Set<NodeId>, edges: Set<string>) {
+  for (const [id, el] of registry.allNodes()) {
+    if (id === step.node) setNodeState(el, 'active', step.mode);
+    else if (visited.has(id)) setNodeState(el, 'visited');
+    else setNodeState(el, 'future');
+  }
+
+  for (const [id, el] of registry.allEdges()) {
+    setEdgeState(el, edges.has(id) ? 'done' : 'future');
+  }
+
+  for (const [, el] of registry.allZones()) el.setAttribute('data-active', 'false');
+  const zone = NODE_BY_ID[step.node]?.zone;
+  if (zone) registry.zone(zone)?.setAttribute('data-active', 'true');
+
+  const root = registry.root();
+  root?.setAttribute('data-mode', step.mode);
+  root?.style.setProperty('--current-mode', `var(${MODE_VAR[step.mode]})`);
+}
+
 /** Paint the whole scene to the exact end-state of `index`. Used for every jump. */
 export function applyStepStatics(
   timeline: Step[],
@@ -58,29 +79,11 @@ export function applyStepStatics(
 
   const { visited, edges } = traversal(timeline, index);
 
-  for (const [id, el] of registry.allNodes()) {
-    if (id === step.node) setNodeState(el, 'active', step.mode);
-    else if (visited.has(id)) setNodeState(el, 'visited');
-    else setNodeState(el, 'future');
-    gsap.set(el, { clearProps: 'x,y,scale,filter' });
-  }
+  // Clear anything a killed tween may have left mid-transform.
+  for (const [, el] of registry.allNodes()) gsap.set(el, { clearProps: 'x,y,scale,filter' });
 
-  for (const [id, el] of registry.allEdges()) {
-    setEdgeState(el, edges.has(id) ? 'done' : 'future');
-  }
-
-  for (const [, el] of registry.allZones()) {
-    el.setAttribute('data-active', 'false');
-  }
-  const zone = NODE_BY_ID[step.node]?.zone;
-  if (zone) registry.zone(zone)?.setAttribute('data-active', 'true');
-
+  paintStates(step, visited, edges);
   setPacketAt(step.node, step.packet?.label ?? '', step.mode, Boolean(step.packet));
-
-  // Mode aura on the canvas root so CSS can tint everything consistently.
-  const root = registry.root();
-  root?.setAttribute('data-mode', step.mode);
-  root?.style.setProperty('--current-mode', `var(${MODE_VAR[step.mode]})`);
 
   ctx.camera?.focusNode(step.node, { duration: prefersReducedMotion() ? 0 : 0.5 });
   void os;
@@ -110,28 +113,11 @@ export function buildStepTimeline(
   // Everything not on the path recedes; the current node takes the spotlight.
   const { visited, edges } = traversal(timeline, index);
 
-  // Set the active node synchronously rather than on arrival: a fast learner pressing
-  // "next" repeatedly kills each timeline mid-flight, and an arrival callback that never
-  // runs would leave the scene with no lit node at all.
-  const activeNow = registry.node(step.node);
-  if (activeNow) setNodeState(activeNow, 'active', step.mode);
-
-  tl.call(() => {
-    for (const [id, el] of registry.allNodes()) {
-      if (id === step.node) continue;
-      setNodeState(el, visited.has(id) ? 'visited' : 'future');
-    }
-    for (const [id, el] of registry.allEdges()) {
-      setEdgeState(el, edges.has(id) ? 'done' : 'future');
-    }
-    for (const [, el] of registry.allZones()) el.setAttribute('data-active', 'false');
-    const zone = NODE_BY_ID[step.node]?.zone;
-    if (zone) registry.zone(zone)?.setAttribute('data-active', 'true');
-
-    const root = registry.root();
-    root?.setAttribute('data-mode', step.mode);
-    root?.style.setProperty('--current-mode', `var(${MODE_VAR[step.mode]})`);
-  });
+  // Paint every node/edge/zone state SYNCHRONOUSLY, never from a GSAP callback. A
+  // deferred callback may be killed before it runs (rapid stepping), which previously
+  // left several nodes lit at once and the mode aura stale. Motion is decoration on top
+  // of a scene that is already correct.
+  paintStates(step, visited, edges);
 
   // Light the active edges while the packet is in flight.
   if (from && from !== step.node) {

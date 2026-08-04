@@ -58,7 +58,6 @@ const ZONE_SPECS: ZoneSpec[] = [
       ['bytecode', 'Bytecode', 'register VM'],
       ['turbofan', 'TurboFan', 'optimizer'],
       ['machinecode', 'Machine Code', 'x86-64'],
-      ['cpu', 'CPU', 'ring 3 → 0'],
       ['eventloop', 'Event Loop', 'microtasks'],
       ['webapi', 'Web API', 'fetch()'],
       ['netservice', 'Network Service', 'PID 4903'],
@@ -107,6 +106,9 @@ const ZONE_SPECS: ZoneSpec[] = [
     nodes: [
       ['libc', 'glibc', 'syscall wrapper'],
       ['syscallgate', 'Syscall Gate', 'entry_SYSCALL_64'],
+      // The CPU lives here rather than with the browser: the ring 3 → ring 0 flip is the
+      // signature moment of the lesson and it should light the kernel frame.
+      ['cpu', 'CPU', 'ring 3 → ring 0'],
       ['syscalltable', 'Syscall Table', 'sys_socket'],
       ['process', 'Process', 'task_struct'],
       ['thread', 'Thread', 'sched entity'],
