@@ -34,9 +34,9 @@ Content is pure data; these are fully parallel and machine-independent. Schema:
 | CONTENT-04 | Steps ch 1–8 | `content/src/data-steps-a.js` | DONE | 60 steps |
 | CONTENT-05 | Steps ch 9–16 | `content/src/data-steps-b.js` | DONE | 62 steps |
 | CONTENT-06 | Steps ch 17–24 | `content/src/data-steps-c.js` | DONE | 72 steps |
-| CONTENT-07 | Chaos scenarios ×5 | `content/src/data-chaos.js` | WIP | agent |
+| CONTENT-07 | Chaos scenarios ×5 | `content/src/data-chaos.js` | DONE | 5 scenarios, 45 steps |
 
-**Lesson totals:** 194 steps · 24/24 chapters · 87 dossiers · `pnpm validate` clean.
+**Lesson totals:** 194 main steps + 45 chaos steps · 24/24 chapters · 87 dossiers · `pnpm validate` clean.
 
 ## Dependency graph
 

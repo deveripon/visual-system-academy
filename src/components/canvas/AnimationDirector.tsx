@@ -22,7 +22,7 @@ export function AnimationDirector({ cameraRef }: Props) {
   const prevIndexRef = useRef(-1);
 
   useEffect(() => {
-    const run = (index: number, transition: 'step' | 'jump') => {
+    const run = (index: number, transition: 'step' | 'jump', replay = false) => {
       const state = useSimStore.getState();
       const timeline = timelineFor(state.flags, state.chaosId);
       if (!timeline.length) return;
@@ -33,7 +33,8 @@ export function AnimationDirector({ cameraRef }: Props) {
 
       const os = foldOsState(timeline, index);
       const ctx = { camera: cameraRef.current };
-      const prev = prevIndexRef.current;
+      // Replaying re-runs the arrival at this step, so it animates in from its predecessor.
+      const prev = replay ? index - 1 : prevIndexRef.current;
       const isNeighbour = Math.abs(index - prev) === 1 && prev >= 0;
 
       if (transition === 'jump' || !isNeighbour) {
@@ -66,12 +67,15 @@ export function AnimationDirector({ cameraRef }: Props) {
       const changed =
         state.stepIndex !== lastIndex || state.timelineVersion !== lastVersion;
       if (changed) {
-        const wasVersionBump = state.timelineVersion !== lastVersion;
+        const versionBumped = state.timelineVersion !== lastVersion;
+        const indexSame = state.stepIndex === lastIndex;
+        // Same index + version bump = replayStep(); anything else with a bump means the
+        // timeline itself was rebuilt (branch chosen, chaos entered/exited, restart).
+        const isReplay = versionBumped && indexSame;
         lastIndex = state.stepIndex;
         lastVersion = state.timelineVersion;
-        // A version bump means the timeline itself was rebuilt (branch/chaos/replay).
-        if (wasVersionBump) prevIndexRef.current = -1;
-        run(state.stepIndex, state.lastTransition);
+        if (versionBumped && !isReplay) prevIndexRef.current = -1;
+        run(state.stepIndex, isReplay ? 'step' : state.lastTransition, isReplay);
         return;
       }
       // Speed changes retime the running animation rather than restarting it.

@@ -8,6 +8,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveChaosEntry } from './chaos-entry-map.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'content', 'src');
@@ -113,7 +114,10 @@ for (let c = 1; c <= 24; c++) if (!chapters.has(c)) err(`chapter ${c} has no ste
 for (const [id, sc] of Object.entries(chaos)) {
   if (!sc.label) err(`chaos.${id}: missing label`);
   if (!Array.isArray(sc.steps) || sc.steps.length < 4) err(`chaos.${id}: needs >=4 steps`);
-  if (sc.entryAfter && !seen.has(sc.entryAfter)) err(`chaos.${id}: entryAfter '${sc.entryAfter}' is not a step id`);
+  // entryAfter is normalised at conversion time, so only an unresolvable one is an error.
+  const resolved = resolveChaosEntry(id, sc.entryAfter, seen);
+  if (resolved === null) err(`chaos.${id}: entryAfter '${sc.entryAfter}' cannot be resolved to any step id`);
+  else if (resolved !== (sc.entryAfter ?? '')) warn(`chaos.${id}: entryAfter '${sc.entryAfter}' → '${resolved}' at build time`);
   for (const s of sc.steps ?? []) {
     if (seen.has(s.id)) err(`chaos.${id}: step id '${s.id}' collides with the main timeline`);
     checkStep(s, `chaos.${id}`);
