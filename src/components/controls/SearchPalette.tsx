@@ -8,15 +8,16 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { getComponents } from '@/data';
-import { CHAPTERS, type ComponentMap, type NodeId } from '@/data/types';
+import { CHAPTERS, type NodeId } from '@/data/types';
 import { useActiveTimeline } from '@/state/selectors';
 import { useSimStore } from '@/state/store';
 import {
   MONO,
+  OVERLAY_KEYFRAMES,
   cx,
   glassStyle,
   scrimStyle,
+  useComponentMap,
   useOverlayFocus,
 } from '@/components/overlays/overlayKit';
 
@@ -33,7 +34,7 @@ interface Group {
 const LIMITS = { step: 8, component: 8, chapter: 4 } as const;
 
 /**
- * Substring first, subsequence second — at ~300 rows this is instant and costs no
+ * Substring first, subsequence second — across ~350 rows this is instant and costs no
  * dependency. Higher is better; -1 means "no match".
  */
 function score(query: string, text: string): number {
@@ -64,35 +65,27 @@ function rank(query: string, row: Row): number {
 
 export function SearchPalette() {
   const open = useSimStore((s) => s.searchOpen);
+  if (!open) return null;
+  // Mounting fresh is what clears the query and the cursor between openings.
+  return <Palette />;
+}
+
+function Palette() {
   const stepIndex = useSimStore((s) => s.stepIndex);
   const timeline = useActiveTimeline();
+  const components = useComponentMap();
 
   const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
-  const [components, setComponents] = useState<ComponentMap | null>(null);
+  const [cursor, setCursor] = useState(0);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const close = useCallback(() => useSimStore.getState().setSearchOpen(false), []);
-  const ref = useOverlayFocus<HTMLDivElement>(open, close);
+  const ref = useOverlayFocus<HTMLDivElement>(true, close);
 
   useEffect(() => {
-    if (!open) return;
-    setQuery('');
-    setActive(0);
     inputRef.current?.focus({ preventScroll: true });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || components) return;
-    let cancelled = false;
-    void getComponents().then((loaded) => {
-      if (!cancelled) setComponents(loaded);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, components]);
+  }, []);
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
@@ -140,8 +133,10 @@ export function SearchPalette() {
     const q = query.trim().toLowerCase();
 
     if (!q) {
-      const current = timeline[stepIndex]?.chapter;
-      const nearby = rows.filter((r) => r.kind === 'step' && timeline[r.index]?.chapter === current);
+      const chapter = timeline[stepIndex]?.chapter;
+      const nearby = rows.filter(
+        (row) => row.kind === 'step' && timeline[row.index]?.chapter === chapter,
+      );
       return nearby.length > 0 ? [{ label: 'this chapter', rows: nearby.slice(0, 8) }] : [];
     }
 
@@ -158,16 +153,17 @@ export function SearchPalette() {
         .map((entry) => entry.row),
     });
 
-    return [bucket('step', 'steps'), bucket('component', 'components'), bucket('chapter', 'chapters')].filter(
-      (group) => group.rows.length > 0,
-    );
+    return [
+      bucket('step', 'steps'),
+      bucket('component', 'components'),
+      bucket('chapter', 'chapters'),
+    ].filter((group) => group.rows.length > 0);
   }, [query, rows, timeline, stepIndex]);
 
   const flat = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
-
-  useEffect(() => {
-    setActive((current) => (current >= flat.length ? 0 : current));
-  }, [flat.length]);
+  // Clamped in render rather than corrected in an effect, so the highlight can never
+  // point past a shrinking result list.
+  const active = flat.length === 0 ? 0 : Math.min(cursor, flat.length - 1);
 
   useEffect(() => {
     listRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
@@ -181,21 +177,19 @@ export function SearchPalette() {
     else store.openDossier(row.id);
   }, []);
 
-  if (!open) return null;
-
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActive((i) => (flat.length === 0 ? 0 : (i + 1) % flat.length));
+      setCursor(flat.length === 0 ? 0 : (active + 1) % flat.length);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((i) => (flat.length === 0 ? 0 : (i - 1 + flat.length) % flat.length));
+      setCursor(flat.length === 0 ? 0 : (active - 1 + flat.length) % flat.length);
     } else if (event.key === 'Home') {
       event.preventDefault();
-      setActive(0);
+      setCursor(0);
     } else if (event.key === 'End') {
       event.preventDefault();
-      setActive(Math.max(0, flat.length - 1));
+      setCursor(Math.max(0, flat.length - 1));
     } else if (event.key === 'Enter') {
       const row = flat[active];
       if (row) {
@@ -205,17 +199,18 @@ export function SearchPalette() {
     }
   };
 
-  let cursor = -1;
+  let index = -1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[12vh]">
+      <style>{OVERLAY_KEYFRAMES}</style>
       <button
         type="button"
         aria-label="Close search"
         onClick={close}
         tabIndex={-1}
         className="absolute inset-0 cursor-default"
-        style={scrimStyle}
+        style={{ ...scrimStyle, animation: 'vsa-fade-in var(--t-ui) ease-out' }}
       />
 
       <div
@@ -225,7 +220,7 @@ export function SearchPalette() {
         aria-label="Search steps and components"
         tabIndex={-1}
         className="relative flex max-h-[70vh] w-full max-w-[38rem] flex-col overflow-hidden rounded-[var(--r-lg)] border border-[var(--border)]"
-        style={glassStyle}
+        style={{ ...glassStyle, animation: 'vsa-card-in var(--t-ui) cubic-bezier(.2,.7,.3,1)' }}
       >
         <div className="flex items-center gap-2.5 border-b border-[var(--border)] px-4 py-3">
           <svg
@@ -245,7 +240,7 @@ export function SearchPalette() {
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setActive(0);
+              setCursor(0);
             }}
             onKeyDown={onKeyDown}
             role="combobox"
@@ -259,7 +254,12 @@ export function SearchPalette() {
               'h-7 w-full bg-transparent text-[14px] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)]',
             )}
           />
-          <kbd className={cx(MONO, 'shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-3)]')}>
+          <kbd
+            className={cx(
+              MONO,
+              'shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-3)]',
+            )}
+          >
             esc
           </kbd>
         </div>
@@ -288,9 +288,9 @@ export function SearchPalette() {
                   {group.label}
                 </p>
                 {group.rows.map((row) => {
-                  cursor += 1;
-                  const index = cursor;
-                  const on = index === active;
+                  index += 1;
+                  const at = index;
+                  const on = at === active;
                   return (
                     <button
                       key={row.key}
@@ -300,14 +300,17 @@ export function SearchPalette() {
                       aria-selected={on}
                       data-active={on}
                       tabIndex={-1}
-                      onMouseMove={() => setActive(index)}
+                      onMouseMove={() => setCursor(at)}
                       onClick={() => activate(row)}
                       className="flex w-full items-center gap-2.5 rounded-[var(--r-sm)] px-2 py-1.5 text-left transition-colors duration-150"
                       style={on ? { background: 'var(--surface-2)' } : undefined}
                     >
                       <span
                         aria-hidden="true"
-                        className={cx(MONO, 'w-[4.5rem] shrink-0 text-[10px] uppercase tracking-wider')}
+                        className={cx(
+                          MONO,
+                          'w-[4.5rem] shrink-0 text-[10px] uppercase tracking-wider',
+                        )}
                         style={{
                           color:
                             row.kind === 'component'
@@ -320,7 +323,9 @@ export function SearchPalette() {
                         {row.kind}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={cx(MONO, 'block truncate text-[13px] text-[var(--text-1)]')}>
+                        <span
+                          className={cx(MONO, 'block truncate text-[13px] text-[var(--text-1)]')}
+                        >
                           {row.title}
                         </span>
                         <span className="block truncate text-[11.5px] text-[var(--text-3)]">
@@ -328,7 +333,9 @@ export function SearchPalette() {
                         </span>
                       </span>
                       {on ? (
-                        <span className={cx(MONO, 'shrink-0 text-[10px] text-[var(--text-3)]')}>↵</span>
+                        <span className={cx(MONO, 'shrink-0 text-[10px] text-[var(--text-3)]')}>
+                          ↵
+                        </span>
                       ) : null}
                     </button>
                   );

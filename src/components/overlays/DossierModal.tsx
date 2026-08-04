@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { getComponents } from '@/data';
-import type { ComponentMap, NodeId } from '@/data/types';
+import type { NodeId } from '@/data/types';
 import { useSimStore } from '@/state/store';
 import {
   MONO,
+  OVERLAY_KEYFRAMES,
   cx,
   glassStyle,
   scrimStyle,
+  useComponentMap,
   useOverlayFocus,
 } from '@/components/overlays/overlayKit';
 
@@ -35,51 +36,37 @@ function Section({
 }
 
 /**
- * The full component dossier. Content is loaded through `getComponents()` so the
- * dossier chunk never costs anything until a learner opens one.
+ * The full component dossier for any of the 87 nodes. Content arrives through
+ * `getComponents()` so the dossier chunk costs nothing until a learner opens one.
+ * The panel mounts on open, which is what resets the related-components trail.
  */
 export function DossierModal() {
   const nodeId = useSimStore((s) => s.dossierNodeId);
-  const open = nodeId !== null;
+  if (!nodeId) return null;
+  return <DossierPanel nodeId={nodeId} />;
+}
 
-  const [map, setMap] = useState<ComponentMap | null>(null);
+function DossierPanel({ nodeId }: { nodeId: NodeId }) {
+  const map = useComponentMap();
   const [copied, setCopied] = useState<string | null>(null);
   const [trail, setTrail] = useState<NodeId[]>([]);
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const close = useCallback(() => useSimStore.getState().openDossier(null), []);
-  const ref = useOverlayFocus<HTMLDivElement>(open, close);
+  const ref = useOverlayFocus<HTMLDivElement>(true, close);
 
+  // A new component is a new document: back to the top, focus on the new name.
   useEffect(() => {
-    if (!open || map) return;
-    let cancelled = false;
-    void getComponents().then((loaded) => {
-      if (!cancelled) setMap(loaded);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, map]);
-
-  // A new component means a new document: back to the top, focus on the new name.
-  useEffect(() => {
-    if (!nodeId) return;
     bodyRef.current?.scrollTo({ top: 0 });
     headingRef.current?.focus({ preventScroll: true });
   }, [nodeId]);
-
-  useEffect(() => {
-    if (!open) setTrail([]);
-  }, [open]);
 
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(null), 1500);
     return () => window.clearTimeout(timer);
   }, [copied]);
-
-  if (!open || !nodeId) return null;
 
   const dossier = map?.[nodeId];
 
@@ -106,13 +93,14 @@ export function DossierModal() {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4 sm:p-6">
+      <style>{OVERLAY_KEYFRAMES}</style>
       <button
         type="button"
         aria-label="Close dossier"
         onClick={close}
         tabIndex={-1}
         className="absolute inset-0 cursor-default"
-        style={scrimStyle}
+        style={{ ...scrimStyle, animation: 'vsa-fade-in var(--t-ui) ease-out' }}
       />
 
       <div
@@ -122,9 +110,8 @@ export function DossierModal() {
         aria-labelledby="vsa-dossier-name"
         tabIndex={-1}
         className="relative flex max-h-[88vh] w-full max-w-[48rem] flex-col rounded-[var(--r-lg)] border border-[var(--border)]"
-        style={glassStyle}
+        style={{ ...glassStyle, animation: 'vsa-card-in var(--t-ui) cubic-bezier(.2,.7,.3,1)' }}
       >
-        {/* header */}
         <header className="flex items-start gap-3 border-b border-[var(--border)] p-5">
           {trail.length > 0 ? (
             <button
@@ -151,7 +138,9 @@ export function DossierModal() {
               >
                 {nodeId}
               </span>
-              <span className={cx(MONO, 'text-[10px] uppercase tracking-[0.14em] text-[var(--text-3)]')}>
+              <span
+                className={cx(MONO, 'text-[10px] uppercase tracking-[0.14em] text-[var(--text-3)]')}
+              >
                 component dossier
               </span>
             </div>
@@ -182,7 +171,6 @@ export function DossierModal() {
           </button>
         </header>
 
-        {/* body */}
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
           {!map ? (
             <p className={cx(MONO, 'py-10 text-center text-[12px] text-[var(--text-3)]')}>
@@ -286,7 +274,10 @@ export function DossierModal() {
                   </summary>
                   <ol className="mt-3 grid gap-2">
                     {dossier.interview.map((question, i) => (
-                      <li key={question} className="flex gap-2.5 text-[13px] leading-relaxed text-[var(--text-2)]">
+                      <li
+                        key={question}
+                        className="flex gap-2.5 text-[13px] leading-relaxed text-[var(--text-2)]"
+                      >
                         <span className={cx(MONO, 'shrink-0 text-[11px] text-[var(--text-3)]')}>
                           {String(i + 1).padStart(2, '0')}
                         </span>

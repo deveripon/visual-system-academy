@@ -2,7 +2,6 @@
 
 import gsap from 'gsap';
 import type { EffectId, StepMode } from '@/data/types';
-import { MODE_VAR } from '@/scene/modeColors';
 import { registry } from './registry';
 import { prefersReducedMotion } from './reducedMotion';
 
@@ -12,7 +11,7 @@ import { prefersReducedMotion } from './reducedMotion';
  * jumping can never make the widgets drift. See docs/ARCHITECTURE.md §1.
  */
 
-function flashNode(tl: gsap.core.Timeline, nodeId: string | null, color: string) {
+function flashNode(tl: gsap.core.Timeline, nodeId: string | null) {
   if (!nodeId) return;
   const el = registry.node(nodeId as never);
   if (!el) return;
@@ -78,7 +77,6 @@ export function applyEffects(
 ): void {
   if (!effects?.length) return;
   const reduced = prefersReducedMotion();
-  const color = `var(${MODE_VAR[ctx.mode]})`;
 
   for (const effect of effects) {
     switch (effect) {
@@ -89,7 +87,7 @@ export function applyEffects(
         if (!reduced) contextSwitch(tl);
         break;
       case 'flash':
-        if (!reduced) flashNode(tl, ctx.nodeId, color);
+        if (!reduced) flashNode(tl, ctx.nodeId);
         break;
       case 'zoomout':
         tl.call(() => ctx.onZoomOut?.(), undefined, '<');

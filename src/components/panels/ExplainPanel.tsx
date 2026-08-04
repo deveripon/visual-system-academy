@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { CHAPTERS, type StepExplain } from '@/data/types';
 import { MODE_LABEL, modeColor } from '@/scene/modeColors';
 import { useCurrentStep, useStepCount } from '@/state/selectors';
@@ -18,6 +18,39 @@ const FADE_CSS = `
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
+}
+
+/**
+ * Content writes inline code in backticks (`tcp_v4_connect`, `SO_REUSEADDR`). Rendering
+ * the ticks literally would be a wart on prose that is otherwise carefully written, and
+ * the mono face is the product's technical voice — so the spans become real <code>.
+ */
+function Prose({
+  text,
+  className,
+  style,
+}: {
+  text: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const parts = text.split('`');
+  return (
+    <p className={className} style={style}>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <code
+            key={i}
+            className="rounded-[3px] border border-line bg-surface-2 px-[3px] py-[1px] font-mono text-[0.9em] text-t1"
+          >
+            {part}
+          </code>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </p>
+  );
 }
 
 /** Small mono caps label. Colour comes in as an inline style so it beats the global rule. */
@@ -151,27 +184,32 @@ export function ExplainPanel() {
         </h2>
 
         {/* why — the lead-in that makes the detail worth reading */}
-        <p
+        <Prose
+          text={explain.why}
           className="border-l-2 pl-3 text-[14.5px] leading-[1.55] text-t1"
           style={{ borderColor: accent }}
-        >
-          {explain.why}
-        </p>
+        />
 
         {/* what — the body prose */}
         <div>
           <Label>what happens</Label>
-          <p className="mt-1.5 text-[13.5px] leading-[1.65] text-t2">{explain.what}</p>
+          <Prose
+            text={explain.what}
+            className="mt-1.5 text-[13.5px] leading-[1.65] text-t2"
+          />
         </div>
 
         <MetaStrip explain={explain} />
 
         <Card label="common misconception" accent="var(--warn)" tint={7}>
-          <p className="text-[13px] leading-[1.6] text-t2">{explain.misconception}</p>
+          <Prose
+            text={explain.misconception}
+            className="text-[13px] leading-[1.6] text-t2"
+          />
         </Card>
 
         <Card label="analogy">
-          <p className="text-[13px] leading-[1.6] text-t3 italic">{explain.analogy}</p>
+          <Prose text={explain.analogy} className="text-[13px] leading-[1.6] text-t3 italic" />
         </Card>
 
         <div className="rounded-[var(--r-sm)] border border-line bg-[color-mix(in_oklab,var(--bg-0)_55%,transparent)] px-3 py-2.5">
@@ -194,7 +232,7 @@ export function ExplainPanel() {
         </div>
 
         <Card label="in production" accent="var(--mode-remote)" tint={7}>
-          <p className="text-[13px] leading-[1.6] text-t2">{explain.production}</p>
+          <Prose text={explain.production} className="text-[13px] leading-[1.6] text-t2" />
         </Card>
 
         {step.code?.length ? (

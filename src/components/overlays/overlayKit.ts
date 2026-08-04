@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { getComponents } from '@/data';
+import type { ComponentMap } from '@/data/types';
 import { useSimStore } from '@/state/store';
 
 /**
@@ -172,3 +174,42 @@ export function useOverlayFocus<T extends HTMLElement>(
 /** `font-mono` resolves to a self-referential theme value in globals.css, so mono text
  *  goes through the custom property directly (same as ControlBar). */
 export const MONO = 'font-[family-name:var(--font-mono)]';
+
+/**
+ * Chrome keyframes. Overlays mount fresh (they render `null` when closed), so entrance
+ * motion is a plain CSS animation — no React state, no timers, and `globals.css`
+ * already neutralises all of it under `prefers-reduced-motion`.
+ * Kept here rather than in globals.css, which this task does not own.
+ */
+export const OVERLAY_KEYFRAMES = `
+@keyframes vsa-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes vsa-card-in { from { opacity: 0; transform: translateY(10px) scale(.985) } to { opacity: 1; transform: none } }
+@keyframes vsa-label-in { from { opacity: 0; transform: translateY(3px) } to { opacity: 1; transform: none } }
+@keyframes vsa-shake {
+  10%, 90% { transform: translateX(-2px) }
+  20%, 80% { transform: translateX(4px) }
+  30%, 50%, 70% { transform: translateX(-6px) }
+  40%, 60% { transform: translateX(6px) }
+}
+`;
+
+/** Dossier content, loaded once per session and shared by the modal and the palette. */
+let componentCache: ComponentMap | null = null;
+
+export function useComponentMap(): ComponentMap | null {
+  const [map, setMap] = useState<ComponentMap | null>(componentCache);
+
+  useEffect(() => {
+    if (componentCache) return;
+    let cancelled = false;
+    void getComponents().then((loaded) => {
+      componentCache = loaded;
+      if (!cancelled) setMap(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return map;
+}

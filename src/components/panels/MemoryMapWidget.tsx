@@ -19,7 +19,7 @@ interface BandProps {
 function Band({ title, ring, range, contents, color, lit }: BandProps) {
   return (
     <div
-      className="rounded-[6px] border px-2.5 py-1.5 transition-colors duration-[var(--t-ui)]"
+      className="rounded-[6px] border px-2.5 py-1 transition-colors duration-[var(--t-ui)]"
       style={{
         borderColor: lit ? `color-mix(in oklab, ${color} 55%, transparent)` : 'var(--border)',
         background: lit

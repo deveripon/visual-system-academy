@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Lesson data is machine-generated from content/src by scripts/convert-content.mjs.
+    // Linting ~500KB of object literals is noise; scripts/validate-content.mjs checks it.
+    "src/data/generated/**",
   ]),
 ]);
 

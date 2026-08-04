@@ -11,6 +11,9 @@ export function useActiveTimeline(): Step[] {
   const flags = useSimStore((s) => s.flags);
   const chaosId = useSimStore((s) => s.chaosId);
   const version = useSimStore((s) => s.timelineVersion);
+  // `version` is deliberately a dependency even though timelineFor does not read it:
+  // it is the cache-bust signal for a rebuilt timeline (branch chosen, chaos entered).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   return useMemo(() => timelineFor(flags, chaosId), [flags, chaosId, version]);
 }
 

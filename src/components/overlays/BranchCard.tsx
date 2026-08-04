@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { StepBranch, StepMode } from '@/data/types';
+import { modeColor } from '@/scene/modeColors';
 import { useCurrentStep } from '@/state/selectors';
 import { useSimStore } from '@/state/store';
-import { modeColor } from '@/scene/modeColors';
 import {
   MONO,
+  OVERLAY_KEYFRAMES,
   cx,
   gateScrimStyle,
   glassStyle,
@@ -19,39 +21,29 @@ import {
  */
 export function BranchCard() {
   const status = useSimStore((s) => s.status);
-  const flags = useSimStore((s) => s.flags);
   const step = useCurrentStep();
-  const branch = step?.branch ?? null;
-  const open = status === 'awaiting-branch' && branch !== null;
+  const branch = step?.branch;
 
+  if (status !== 'awaiting-branch' || !branch || !step) return null;
+  // Keyed by step so a second branch mounts fresh (and re-runs its entrance).
+  return <BranchGate key={step.id} branch={branch} mode={step.mode} />;
+}
+
+function BranchGate({ branch, mode }: { branch: StepBranch; mode: StepMode }) {
+  const flags = useSimStore((s) => s.flags);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [shown, setShown] = useState(false);
+
+  const currentValue = flags[branch.key];
+  const defaultIndex = Math.max(
+    0,
+    branch.options.findIndex((o) => o.value === currentValue),
+  );
 
   useEffect(() => {
-    if (!open) {
-      setShown(false);
-      return;
-    }
-    const frame = requestAnimationFrame(() => setShown(true));
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-
-  const currentValue = branch ? flags[branch.key] : null;
-  const defaultIndex = branch
-    ? Math.max(
-        0,
-        branch.options.findIndex((o) => o.value === currentValue),
-      )
-    : 0;
-
-  useEffect(() => {
-    if (!open) return;
     optionRefs.current[defaultIndex]?.focus({ preventScroll: true });
-  }, [open, defaultIndex, step?.id]);
+  }, [defaultIndex]);
 
-  if (!open || !branch) return null;
-
-  const accent = modeColor(step?.mode ?? 'user');
+  const accent = modeColor(mode);
 
   const choose = (value: string): void => {
     useSimStore.getState().resolveBranch(branch.key, value);
@@ -79,10 +71,11 @@ export function BranchCard() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center p-6">
+      <style>{OVERLAY_KEYFRAMES}</style>
       <div
         aria-hidden="true"
-        className="absolute inset-0 transition-opacity"
-        style={{ ...gateScrimStyle, opacity: shown ? 1 : 0, transitionDuration: 'var(--t-ui)' }}
+        className="absolute inset-0"
+        style={{ ...gateScrimStyle, animation: 'vsa-fade-in var(--t-ui) ease-out' }}
       />
 
       <section
@@ -90,21 +83,22 @@ export function BranchCard() {
         aria-modal="false"
         aria-labelledby="vsa-branch-question"
         onKeyDown={onKeyDown}
-        className="pointer-events-auto relative w-full max-w-[44rem] rounded-[var(--r-lg)] border p-5 transition-all"
+        className="pointer-events-auto relative w-full max-w-[44rem] rounded-[var(--r-lg)] border p-5"
         style={{
           ...glassStyle,
           borderColor: `color-mix(in oklab, ${accent} 40%, transparent)`,
           boxShadow: `0 24px 70px -30px ${accent}, var(--glass-shadow)`,
-          opacity: shown ? 1 : 0,
-          transform: shown ? 'none' : 'translateY(8px) scale(.985)',
-          transitionDuration: 'var(--t-ui)',
+          animation: 'vsa-card-in var(--t-ui) cubic-bezier(.2,.7,.3,1)',
         }}
       >
         <div className="flex items-center gap-2">
           <span aria-hidden="true" style={{ color: accent }} className="text-[13px] leading-none">
             ⑂
           </span>
-          <span className={cx(MONO, 'text-[10px] font-semibold uppercase tracking-[0.14em]')} style={{ color: accent }}>
+          <span
+            className={cx(MONO, 'text-[10px] font-semibold uppercase tracking-[0.14em]')}
+            style={{ color: accent }}
+          >
             decision point · {branch.key}
           </span>
         </div>
@@ -144,7 +138,10 @@ export function BranchCard() {
                   </span>
                   {isCurrent ? (
                     <span
-                      className={cx(MONO, 'ml-auto rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-wider')}
+                      className={cx(
+                        MONO,
+                        'ml-auto rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-wider',
+                      )}
                       style={{
                         color: accent,
                         background: `color-mix(in oklab, ${accent} 14%, transparent)`,

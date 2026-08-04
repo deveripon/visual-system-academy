@@ -42,3 +42,6 @@ next-env.d.ts
 
 # generated lesson data (rebuilt by pnpm convert)
 /src/data/generated/
+
+# agent scratch previews (never commit)
+.vsa-preview/

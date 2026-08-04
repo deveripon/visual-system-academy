@@ -66,7 +66,7 @@ export function RightRail() {
         <div
           tabIndex={0}
           aria-label="Machine state"
-          className="max-h-[52%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
+          className="max-h-[62%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
         >
           <OsStatePanel />
         </div>

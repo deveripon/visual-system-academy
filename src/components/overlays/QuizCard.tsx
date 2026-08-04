@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import type { StepQuiz } from '@/data/types';
 import { useCurrentStep } from '@/state/selectors';
 import { useSimStore } from '@/state/store';
 import {
   MONO,
+  OVERLAY_KEYFRAMES,
   cx,
   gateScrimStyle,
   glassStyle,
@@ -18,43 +20,26 @@ interface Result {
 
 /**
  * The quiz gate. It blocks *forward playback* only — `jumpTo` records a skipped answer
- * in the store, so the learner is never stuck. A wrong answer explains and lets you
- * retry or move on; a right answer confirms, explains, and offers to continue.
+ * in the store, so the learner is never stuck. Mounted for every quiz step and keyed by
+ * step id, so each question starts from a clean slate without resetting state in effects.
  */
 export function QuizCard() {
-  const status = useSimStore((s) => s.status);
   const step = useCurrentStep();
-  const quiz = step?.quiz ?? null;
-  const stepId = step?.id ?? '';
+  if (!step?.quiz) return null;
+  return <QuizGate key={step.id} stepId={step.id} quiz={step.quiz} />;
+}
 
+function QuizGate({ stepId, quiz }: { stepId: string; quiz: StepQuiz }) {
+  const status = useSimStore((s) => s.status);
   const [selected, setSelected] = useState<number | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  const [shown, setShown] = useState(false);
-
-  // Every step owns its own quiz state.
-  useEffect(() => {
-    setSelected(null);
-    setResult(null);
-    setAttempts(0);
-    setDismissed(false);
-  }, [stepId]);
 
   // The store flips status to 'paused' the moment a correct answer lands, so visibility
   // also keys off the local result — otherwise the confirmation would never be seen.
-  const open = quiz !== null && !dismissed && (status === 'awaiting-quiz' || result !== null);
-
-  useEffect(() => {
-    if (!open) {
-      setShown(false);
-      return;
-    }
-    const frame = requestAnimationFrame(() => setShown(true));
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-
-  if (!open || !quiz) return null;
+  const open = !dismissed && (status === 'awaiting-quiz' || result !== null);
+  if (!open) return null;
 
   const submit = (): void => {
     if (selected === null) return;
@@ -80,39 +65,30 @@ export function QuizCard() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center p-6">
-      <style>{`
-@keyframes vsa-quiz-shake {
-  10%, 90% { transform: translateX(-2px); }
-  20%, 80% { transform: translateX(4px); }
-  30%, 50%, 70% { transform: translateX(-6px); }
-  40%, 60% { transform: translateX(6px); }
-}
-`}</style>
+      <style>{OVERLAY_KEYFRAMES}</style>
       <div
         aria-hidden="true"
-        className="absolute inset-0 transition-opacity"
-        style={{ ...gateScrimStyle, opacity: shown ? 1 : 0, transitionDuration: 'var(--t-ui)' }}
+        className="absolute inset-0"
+        style={{ ...gateScrimStyle, animation: 'vsa-fade-in var(--t-ui) ease-out' }}
       />
 
       <div
-        // Remounting on each wrong attempt restarts the shake animation.
+        // Remounting on each wrong attempt restarts the shake.
         key={`attempt-${attempts}`}
         className="pointer-events-auto relative w-full max-w-[40rem]"
-        style={wrong ? { animation: 'vsa-quiz-shake 420ms cubic-bezier(.36,.07,.19,.97)' } : undefined}
+        style={wrong ? { animation: 'vsa-shake 420ms cubic-bezier(.36,.07,.19,.97)' } : undefined}
       >
         <section
           role="dialog"
           aria-modal="false"
           aria-labelledby="vsa-quiz-question"
           onKeyDown={shieldGlobalKeys}
-          className="rounded-[var(--r-lg)] border p-5 transition-all"
+          className="rounded-[var(--r-lg)] border p-5"
           style={{
             ...glassStyle,
             borderColor: `color-mix(in oklab, ${accent} 42%, transparent)`,
             boxShadow: `0 24px 70px -34px ${accent}, var(--glass-shadow)`,
-            opacity: shown ? 1 : 0,
-            transform: shown ? 'none' : 'translateY(8px) scale(.985)',
-            transitionDuration: 'var(--t-ui)',
+            animation: attempts === 0 ? 'vsa-card-in var(--t-ui) cubic-bezier(.2,.7,.3,1)' : undefined,
           }}
         >
           <fieldset disabled={correct}>
@@ -136,11 +112,7 @@ export function QuizCard() {
                 const isAnswer = i === quiz.answer;
                 const picked = result ? result.choice === i : selected === i;
                 const reveal = result !== null && (isAnswer || result.choice === i);
-                const tone = !reveal
-                  ? null
-                  : isAnswer
-                    ? 'var(--ok)'
-                    : 'var(--err)';
+                const tone = !reveal ? null : isAnswer ? 'var(--ok)' : 'var(--err)';
                 return (
                   <label key={`${i}-${option}`} className="block cursor-pointer">
                     <input
@@ -183,7 +155,10 @@ export function QuizCard() {
                       </span>
                       {reveal ? (
                         <span
-                          className={cx(MONO, 'ml-auto shrink-0 text-[10px] uppercase tracking-wider')}
+                          className={cx(
+                            MONO,
+                            'ml-auto shrink-0 text-[10px] uppercase tracking-wider',
+                          )}
                           style={{ color: tone ?? 'var(--text-3)' }}
                         >
                           {isAnswer ? 'correct' : 'your pick'}

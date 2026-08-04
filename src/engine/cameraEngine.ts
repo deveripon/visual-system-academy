@@ -19,6 +19,8 @@ export interface Camera {
   focusZone(id: ZoneId): void;
   focusRect(rect: Rect, opts?: { duration?: number; maxScale?: number }): void;
   applyLayerView(view: LayerView): void;
+  /** Zoom about the viewport centre, relative to the current scale. */
+  zoomBy(factor: number): void;
   fitAll(): void;
   cancel(): void;
   destroy(): void;
@@ -123,6 +125,15 @@ export function createCamera(pz: PanZoom, viewportEl: HTMLElement): Camera {
       const def = LAYER_VIEWS[view];
       if (!def) return;
       moveTo(unionOfZones(def.zones), 0.8, 1.1);
+    },
+    zoomBy(factor) {
+      cancel();
+      programmatic = true;
+      try {
+        pz.smoothZoom(viewportEl.clientWidth / 2, viewportEl.clientHeight / 2, factor);
+      } finally {
+        programmatic = false;
+      }
     },
     fitAll() {
       moveTo({ x: 0, y: 0, w: WORLD.w, h: WORLD.h }, 0.7, 1);

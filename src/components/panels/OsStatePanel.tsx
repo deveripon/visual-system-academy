@@ -18,7 +18,7 @@ export function OsStatePanel() {
   return (
     <section
       aria-label="Machine state"
-      className="flex flex-col gap-3 p-3.5 text-t2"
+      className="flex flex-col gap-2.5 p-3 text-t2"
     >
       <div className="flex items-baseline gap-2">
         <h2 className="instrument-label">machine state</h2>
@@ -34,9 +34,15 @@ export function OsStatePanel() {
         <span className="ml-auto truncate font-mono text-[11px] text-t1">{os.proc}</span>
       </div>
 
-      <FdTable fds={os.fds} />
+      {/*
+        The fd table sits last on purpose: it is the only widget whose height varies with
+        content and it already scrolls internally, so when the pinned rail runs out of
+        room it is the one that gives — never the memory map, whose whole job is to show
+        the user/kernel crossing at the exact moment `mem: 'copy'` happens.
+      */}
       <TcpStateMachine state={os.sock} />
       <MemoryMapWidget mem={os.mem} />
+      <FdTable fds={os.fds} />
     </section>
   );
 }
