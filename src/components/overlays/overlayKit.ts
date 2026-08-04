@@ -64,6 +64,24 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
+/** Keys `src/lib/keyboard.ts` binds globally and that focused chrome must claim first. */
+const SHIELDED_KEYS = new Set([
+  ' ',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'h',
+  'l',
+  'r',
+  'R',
+]);
+
+/** Same shield for surfaces that are not focus-trapped (the inline branch/quiz gates). */
+export function shieldGlobalKeys(event: { key: string; stopPropagation(): void }): void {
+  if (SHIELDED_KEYS.has(event.key)) event.stopPropagation();
+}
+
 type Focusable = HTMLElement | SVGElement;
 
 function isFocusable(el: Element): el is Focusable {
@@ -114,7 +132,13 @@ export function useOverlayFocus<T extends HTMLElement>(
         else useSimStore.getState().closeTopOverlay();
         return;
       }
-      if (event.key !== 'Tab') return;
+      if (event.key !== 'Tab') {
+        // Keys the global keymap also claims (step, play/pause, replay) belong to the
+        // overlay while it owns focus — otherwise Space on a button would also toggle
+        // playback behind the modal.
+        if (SHIELDED_KEYS.has(event.key)) event.stopPropagation();
+        return;
+      }
 
       const items = focusables();
       if (items.length === 0) {
