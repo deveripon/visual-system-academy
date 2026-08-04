@@ -16,7 +16,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="h-full overflow-hidden">{children}</body>
+      {/* Extensions routinely inject attributes onto <body> before React hydrates
+          (Grammarly, ColorZilla, …); that is not a mismatch worth reporting. */}
+      <body className="h-full overflow-hidden" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }

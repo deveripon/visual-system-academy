@@ -78,7 +78,7 @@ export function applyStepStatics(
   setPacketAt(step.node, step.packet?.label ?? '', step.mode, Boolean(step.packet));
 
   // Mode aura on the canvas root so CSS can tint everything consistently.
-  const root = registry.packet()?.ownerSVGElement;
+  const root = registry.root();
   root?.setAttribute('data-mode', step.mode);
   root?.style.setProperty('--current-mode', `var(${MODE_VAR[step.mode]})`);
 
@@ -110,6 +110,12 @@ export function buildStepTimeline(
   // Everything not on the path recedes; the current node takes the spotlight.
   const { visited, edges } = traversal(timeline, index);
 
+  // Set the active node synchronously rather than on arrival: a fast learner pressing
+  // "next" repeatedly kills each timeline mid-flight, and an arrival callback that never
+  // runs would leave the scene with no lit node at all.
+  const activeNow = registry.node(step.node);
+  if (activeNow) setNodeState(activeNow, 'active', step.mode);
+
   tl.call(() => {
     for (const [id, el] of registry.allNodes()) {
       if (id === step.node) continue;
@@ -122,7 +128,7 @@ export function buildStepTimeline(
     const zone = NODE_BY_ID[step.node]?.zone;
     if (zone) registry.zone(zone)?.setAttribute('data-active', 'true');
 
-    const root = registry.packet()?.ownerSVGElement;
+    const root = registry.root();
     root?.setAttribute('data-mode', step.mode);
     root?.style.setProperty('--current-mode', `var(${MODE_VAR[step.mode]})`);
   });
@@ -162,10 +168,8 @@ export function buildStepTimeline(
     tl.call(() => setPacketAt(step.node, step.packet?.label ?? '', step.mode, Boolean(step.packet)));
   }
 
-  // Arrival: the node lights up and pulses once.
+  // Arrival: the edges the packet just crossed turn green.
   tl.call(() => {
-    const el = registry.node(step.node);
-    if (el) setNodeState(el, 'active', step.mode);
     const route = from && from !== step.node ? registry.route(from, step.node) : [];
     for (const id of route) {
       const el2 = registry.edge(id);

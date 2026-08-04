@@ -62,11 +62,15 @@ export function RightRail() {
           <ExplainPanel />
           <PacketInspector />
         </div>
-        {/* Scrollable and has no focusable children of its own, so it needs its own tab stop. */}
+        {/*
+          Pinned. `shrink-0` + `max-h` makes this take min(its natural height, half the
+          rail): it never grows past what the widgets need, and never eats the
+          explanation. Scrollable with no focusable children, so it owns a tab stop.
+        */}
         <div
           tabIndex={0}
           aria-label="Machine state"
-          className="max-h-[62%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
+          className="max-h-[50%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
         >
           <OsStatePanel />
         </div>

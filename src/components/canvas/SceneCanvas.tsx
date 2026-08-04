@@ -16,6 +16,7 @@ import { useSimStore } from '@/state/store';
 export const SceneCanvas = memo(function SceneCanvas() {
   return (
     <svg
+      ref={(el) => registry.setRoot(el)}
       viewBox={`0 0 ${WORLD.w} ${WORLD.h}`}
       className="vsa-scene h-full w-full"
       role="img"
@@ -187,14 +188,17 @@ function SceneStyles() {
 }
 .vsa-zone-sub { fill: var(--text-3); font-size: 11.5px; letter-spacing: 0.02em; }
 
+/* Untravelled edges are barely there on purpose: 158 connectors at full strength read as
+   spaghetti and bury the one path that matters. They exist to show the graph is dense,
+   not to be individually traced. */
 .vsa-edge {
   stroke: var(--text-3);
-  stroke-opacity: 0.3;
-  stroke-width: 1.6;
+  stroke-opacity: 0.11;
+  stroke-width: 1.1;
   transition: stroke 320ms ease, stroke-opacity 320ms ease, stroke-width 320ms ease;
 }
-.vsa-edge[data-kind='aux'] { stroke-dasharray: 3 7; stroke-opacity: 0.18; }
-.vsa-edge[data-state='done'] { stroke: var(--ok); stroke-opacity: 0.5; }
+.vsa-edge[data-kind='aux'] { stroke-dasharray: 3 7; stroke-opacity: 0.07; }
+.vsa-edge[data-state='done'] { stroke: var(--ok); stroke-opacity: 0.42; stroke-width: 1.5; }
 .vsa-edge[data-state='active'] {
   stroke: var(--current-mode, var(--mode-user));
   stroke-opacity: 1; stroke-width: 3;

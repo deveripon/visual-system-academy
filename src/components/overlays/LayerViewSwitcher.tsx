@@ -22,7 +22,8 @@ export function LayerViewSwitcher() {
   const active = free ? null : LAYER_VIEWS[layerView];
 
   return (
-    <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-1.5">
+    // Sits one row above the canvas's own bottom chrome (zoom controls left, hint right).
+    <div className="absolute bottom-16 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-1.5">
       {active ? (
         <p
           className={cx(MONO, 'max-w-[34rem] truncate px-2 text-[11px] text-[var(--text-3)]')}

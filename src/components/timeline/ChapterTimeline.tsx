@@ -23,7 +23,7 @@ export function ChapterTimeline() {
   const timeline = useActiveTimeline();
   const step = useCurrentStep();
   const stepIndex = useSimStore((s) => s.stepIndex);
-  const expandedChapter = useSimStore((s) => s.expandedChapter);
+  const storedExpansion = useSimStore((s) => s.expandedChapter);
   const chaosId = useSimStore((s) => s.chaosId);
 
   const mode = step?.mode ?? 'user';
@@ -32,6 +32,9 @@ export function ChapterTimeline() {
   const position = total === 0 ? 0 : Math.min(stepIndex + 1, total);
   const percent = total === 0 ? 0 : (position / total) * 100;
   const currentChapter = timeline[stepIndex]?.chapter ?? 0;
+  // The store starts with nothing expanded; the dock's resting state is "the chapter you
+  // are in, open". Collapsing sets chapter 0, which no chapter can match.
+  const expandedChapter = storedExpansion ?? currentChapter;
 
   const activePillRef = useRef<HTMLLIElement | null>(null);
 
@@ -48,7 +51,7 @@ export function ChapterTimeline() {
       const store = useSimStore.getState();
       if (chapter.n === currentChapter) {
         // Clicking the chapter you are already in toggles its step list.
-        store.setExpandedChapter(expandedChapter === chapter.n ? null : chapter.n);
+        store.setExpandedChapter(expandedChapter === chapter.n ? 0 : chapter.n);
         return;
       }
       store.jumpToChapter(chapter.n);

@@ -11,6 +11,7 @@ const nodes = new Map<NodeId, SVGGElement>();
 const edges = new Map<EdgeId, SVGPathElement>();
 const zones = new Map<ZoneId, SVGGElement>();
 let packetEl: SVGGElement | null = null;
+let rootEl: SVGSVGElement | null = null;
 
 /** Adjacency built once from the static edge list; used for multi-hop packet routing. */
 let adjacency: Map<NodeId, { to: NodeId; edge: EdgeId }[]> | null = null;
@@ -48,6 +49,12 @@ export const registry = {
   },
   setPacket(el: SVGGElement | null) {
     packetEl = el;
+  },
+  setRoot(el: SVGSVGElement | null) {
+    rootEl = el;
+  },
+  root() {
+    return rootEl;
   },
 
   node(id: NodeId) {
@@ -108,5 +115,6 @@ export const registry = {
     edges.clear();
     zones.clear();
     packetEl = null;
+    rootEl = null;
   },
 };
