@@ -121,25 +121,49 @@ mergeProd(step: Step): Step
 foldOsState(timeline: Step[], upTo: number): OsState
 INITIAL_OS_STATE: OsState
 
-// src/engine/timelines.ts
-buildStepTimeline(step: Step, prev: Step | null, ctx: SceneCtx): gsap.core.Timeline
-applyStepStatics(step: Step, os: OsState, timeline: Step[], index: number, ctx: SceneCtx): void
+// src/engine/timelines.ts        (SceneCtx = { camera: Camera | null })
+buildStepTimeline(timeline: Step[], index: number, prevIndex: number,
+                  os: OsState, ctx: SceneCtx, onComplete: () => void): gsap.core.Timeline
+applyStepStatics(timeline: Step[], index: number, os: OsState, ctx: SceneCtx): void
 
 // src/engine/cameraEngine.ts
 createCamera(pz: PanZoom, viewportEl: HTMLElement): Camera
 interface Camera { focusNode(id: NodeId, o?: {scale?: number; duration?: number}): void;
-                   focusZone(id: ZoneId): void; applyLayerView(v: LayerView): void;
+                   focusZone(id: ZoneId): void;
+                   focusRect(r: {x,y,w,h}, o?: {duration?: number; maxScale?: number}): void;
+                   applyLayerView(v: LayerView): void;
                    fitAll(): void; cancel(): void; destroy(): void }
 
 // src/engine/packetMotion.ts
-flyPacket(tl: gsap.core.Timeline, ctx: SceneCtx,
+flyPacket(tl: gsap.core.Timeline,
           o: { from: NodeId; to: NodeId; label: string; mode: StepMode; duration: number }): void
+setPacketAt(nodeId: NodeId, label: string, mode: StepMode, visible: boolean): void
 
 // src/engine/effectsEngine.ts
-applyEffects(tl: gsap.core.Timeline, effects: EffectId[], ctx: SceneCtx): void
+applyEffects(tl: gsap.core.Timeline, effects: EffectId[] | undefined,
+             ctx: { mode: StepMode; nodeId: string; onZoomOut?: () => void }): void
+
+// src/engine/reducedMotion.ts
+prefersReducedMotion(): boolean
 ```
 
-`SceneCtx` = `{ camera: Camera; reduced: boolean }`. Engines never import React.
+Engines never import React. Reduced motion is read from `reducedMotion.ts`, never from
+`matchMedia` directly.
+
+**Scene DOM contract** — the engine drives the scene purely through these hooks, so
+`SceneCanvas` must style them with CSS attribute selectors, never React state:
+
+| element | attribute / property |
+|---|---|
+| node `<g>` | `data-state="future\|visited\|active"`, `data-mode="user\|kernel\|hw\|net\|remote"`; GSAP tweens `scale` with `transformOrigin: center` |
+| edge `<path>` | `data-state="future\|done\|active"` |
+| zone `<g>` | `data-active="true\|false"` |
+| root `<svg>` | `data-mode`, plus a `--current-mode` CSS variable |
+| packet `<g>` | positioned via `transform="translate(x y)"` in world units; contains an element with `data-packet-label`; reads a `--packet-color` variable |
+
+`CanvasViewport` signature: `({ cameraRef }: { cameraRef: React.RefObject<Camera | null> })`.
+It creates the panzoom instance (**without** `bounds`, which would clamp camera framing)
+and assigns `cameraRef.current = createCamera(pz, viewportEl)`.
 
 ## C6 🧊 Layer views — `src/scene/layerViews.ts`
 
