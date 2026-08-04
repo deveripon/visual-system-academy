@@ -1419,5 +1419,577 @@ window.STEPS_C = [
     }
   },
 
-// __END__
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 23 — The Kernel Receive Path (the full, uncompressed tour)
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'rx-nic-filter',
+    chapter: 23,
+    title: 'The NIC decides this frame is for us',
+    node: 'nic',
+    mode: 'hw',
+    packet: {
+      label: 'Frame on the wire → dev-laptop',
+      layers: ['eth', 'ip', 'tcp', 'tls'],
+      fields: {
+        eth: { 'Dst MAC': '3c:07:54:6a:2b:91', 'Src MAC': 'a4:91:b1:0c:44:e2', 'EtherType': '0x0800', 'FCS': 'valid (CRC32)' },
+        ip: { 'Src': '104.18.32.7', 'Dst': '192.168.1.23', 'TTL': '52' },
+        tcp: { 'Src Port': '443', 'Dst Port': '51324', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'The PHY recovers bits from the electrical signal and hands a frame to the MAC block. The MAC verifies the 32-bit FCS (a corrupted frame is dropped here and counted in rx_crc_errors, invisible to software), then checks the destination MAC against its filter set: our unicast address, broadcast, and any subscribed multicast groups. Match — this frame is ours. Then RSS hashes the 4-tuple to pick which of the 8 receive queues it lands in.',
+      why: 'Filtering in hardware means the CPU is never interrupted for the neighbours’ traffic. Without it every host on a segment would burn cycles discarding frames it does not want.',
+      component: 'NIC MAC + RSS (e.g. Intel I225-V)',
+      layer: 'Hardware · OSI L1/L2',
+      abstraction: 'Address filtering and queue steering in silicon',
+      protocol: 'IEEE 802.3',
+      misconception: '"Promiscuous mode is how tcpdump works." tcpdump normally does NOT need it — you already receive your own traffic. Promiscuous mode only matters for capturing OTHER hosts’ frames, which on a switched LAN you will not see anyway.',
+      analogy: 'A doorman reading name tags at the gate and only letting through the guests on tonight’s list — the party never hears about the rest.',
+      command: 'ethtool -S enp3s0 | grep -E "rx_crc_errors|rx_missed|rx_queue_._packets"',
+      production: 'rx_missed_errors climbing means the NIC filled its FIFO before the driver drained the ring — usually too few queues or IRQs pinned to a busy core. Fix with ethtool -L/-G and IRQ affinity, not with a bigger machine.'
+    },
+    code: [
+      { title: 'Queues and interrupts', lang: 'bash', code: 'ethtool -l enp3s0\n# Combined: 8         <- 8 RX/TX queue pairs, one per core\n\ncat /proc/interrupts | grep enp3s0\n# 132: 218374  0  0  0  IR-PCI-MSI 1572864-edge  enp3s0-rx-0\n# 133:      0  0  0  0  IR-PCI-MSI 1572865-edge  enp3s0-rx-1' }
+    ]
+  },
+
+  {
+    id: 'rx-dma-ring',
+    chapter: 23,
+    title: 'DMA writes the frame into the RX ring',
+    node: 'dma',
+    mode: 'hw',
+    effects: ['ring+'],
+    explain: {
+      what: 'The NIC pops the next free descriptor from the RX ring — a circular array of records the driver pre-filled with the physical addresses of empty page buffers — and DMAs the frame bytes straight into that memory over PCIe. No CPU instruction moves a single byte. The NIC then writes back the descriptor with the length, the RSS hash, checksum-verified flags, and the DD (descriptor done) bit set, and advances the head pointer.',
+      why: 'Direct Memory Access is what makes 10Gbps possible on a general-purpose CPU: the processor is only told that data arrived, never asked to copy it off the card.',
+      component: 'DMA engine + RX descriptor ring (driver ring buffer)',
+      layer: 'Hardware ↔ kernel memory',
+      abstraction: 'Device-initiated memory writes with a producer/consumer ring',
+      protocol: 'PCIe memory writes',
+      misconception: '"The kernel copies the packet from the card." It has not touched it at all yet — and with DDIO on server CPUs, the DMA may land directly in L3 cache so the first CPU read is already warm.',
+      analogy: 'A courier with a key to your mailbox: they put the parcel inside themselves and only then press the doorbell.',
+      command: 'ethtool -g enp3s0   # RX ring: 512 current / 4096 max',
+      production: 'Growing the RX ring (ethtool -G enp3s0 rx 4096) buys tolerance for latency spikes but adds bufferbloat. Raise it when you see rx_missed_errors, not preemptively.'
+    },
+    code: [
+      { title: 'A descriptor, roughly', lang: 'c', code: 'struct rx_desc {\n    __le64 buffer_addr;   /* physical addr of a page the driver posted */\n    __le16 length;        /* written back by the NIC */\n    __le16 vlan_tag;\n    __le32 rss_hash;      /* used to pick this queue */\n    __le32 status_error;  /* DD | EOP | IPCS_OK | TCPCS_OK */\n};\n/* ring of 512 of these; head advanced by NIC, tail by driver */' }
+    ]
+  },
+
+  {
+    id: 'rx-hw-irq',
+    chapter: 23,
+    title: 'The NIC raises a hardware interrupt',
+    node: 'irq',
+    mode: 'hw',
+    effects: ['irq'],
+    explain: {
+      what: 'With data in memory, the NIC signals the CPU. On modern hardware that is MSI-X: a PCIe memory write to a magic address the interrupt controller watches, carrying a vector number (132 for rx-0). The local APIC on the target core raises the interrupt; the CPU finishes its current instruction, pushes RIP/RFLAGS, consults the IDT, and jumps to the registered handler. Whatever was running — your JavaScript, a video decode — is suspended mid-flight.',
+      why: 'Interrupts are how hardware gets attention without the CPU having to ask. The alternative, polling every device constantly, wastes the entire machine.',
+      component: 'MSI-X → local APIC → IDT vector (arch/x86/kernel/irq.c)',
+      layer: 'Hardware ↔ kernel · interrupt delivery',
+      abstraction: 'Asynchronous hardware notification',
+      protocol: 'PCIe MSI-X',
+      misconception: '"Interrupts are cheap." Each one costs a pipeline flush, a possible cache-cold handler, and often an IPI. At 1 million packets per second, one interrupt per packet would consume a core doing nothing but bookkeeping — which is precisely why NAPI exists (two steps from now).',
+      analogy: 'A phone ringing during dinner: you must put down your fork mid-bite. Fine occasionally; unbearable at three rings a second.',
+      command: 'watch -n1 "grep enp3s0 /proc/interrupts"',
+      production: 'Pin queue IRQs to specific cores (/proc/irq/N/smp_affinity) and keep irqbalance away from latency-critical NICs. On trading and telco boxes this single change moves p99 by milliseconds.'
+    }
+  },
+
+  {
+    id: 'rx-top-half',
+    chapter: 23,
+    title: 'The top half: do almost nothing, quickly',
+    node: 'cpu',
+    mode: 'kernel',
+    state: { mode: 'kernel' },
+    explain: {
+      what: 'The driver’s hard IRQ handler runs in interrupt context with interrupts disabled on this core. It does three things and stops: acknowledge the interrupt so the NIC stops asserting it, MASK further RX interrupts on this queue, and call napi_schedule(). Total: a couple of microseconds. It does not parse the packet. It does not touch TCP. It cannot sleep, cannot take a mutex, cannot allocate with GFP_KERNEL.',
+      why: 'Every microsecond in interrupt context is a microsecond where this core cannot service ANY other interrupt — including the timer. Top halves are deliberately anaemic so the system stays responsive.',
+      component: 'Driver hard IRQ handler (igc_msix_ring in drivers/net/ethernet/intel/igc)',
+      layer: 'Kernel · interrupt context',
+      abstraction: 'Split interrupt handling: top half vs bottom half',
+      protocol: '—',
+      misconception: '"The interrupt handler processes the packet." It defers everything. Splitting into a fast acknowledgment and deferrable work is one of the oldest and most important patterns in OS design.',
+      analogy: 'Answering the phone with "got it, call you right back" and hanging up — you took the message without holding the line.',
+      command: 'sudo cat /proc/interrupts; sudo perf top -e irq:irq_handler_entry',
+      production: 'hardirq time shows as %hi in top/mpstat. If a core shows more than a few percent %hi, the driver is doing too much in interrupt context or your interrupt rate is unmoderated.'
+    },
+    code: [
+      { title: 'The whole top half', lang: 'c', code: 'static irqreturn_t igc_msix_ring(int irq, void *data)\n{\n    struct igc_q_vector *q_vector = data;\n\n    igc_write_itr(q_vector);      /* interrupt throttling */\n    napi_schedule(&q_vector->napi);  /* defer the real work */\n    return IRQ_HANDLED;           /* ...and we are done. */\n}' }
+    ]
+  },
+
+  {
+    id: 'rx-napi-schedule',
+    chapter: 23,
+    title: 'napi_schedule() raises NET_RX_SOFTIRQ',
+    node: 'napi',
+    mode: 'kernel',
+    quiz: {
+      q: 'Why does Linux switch from interrupts to polling (NAPI) when traffic gets heavy?',
+      options: [
+        'Polling is always faster than interrupts',
+        'Under high packet rates, per-packet interrupts can livelock the CPU — NAPI takes one interrupt, masks further ones, and polls until the ring drains',
+        'Interrupts cannot be delivered faster than 10,000 per second'
+      ],
+      answer: 1,
+      explain: 'Interrupt livelock is real: at high rates the CPU spends all its time entering and leaving interrupt context and never reaches the code that actually drains the queue, so throughput collapses toward zero. NAPI is a hybrid — interrupt-driven when idle (low latency), poll-driven when busy (high throughput) — and it switches automatically based on whether the poll used its full budget.'
+    },
+    explain: {
+      what: 'napi_schedule adds this queue’s NAPI context to the per-CPU poll_list and calls raise_softirq_irqoff(NET_RX_SOFTIRQ), which simply sets a bit in the per-CPU pending mask. That is all — a list insert and a bit set. The actual work happens after interrupt context unwinds, when the kernel checks that mask.',
+      why: 'This is the pivot from "interrupt me per packet" to "I will come collect them in a batch" — the design that let Linux keep up as NICs went from 100Mbps to 100Gbps.',
+      component: 'NAPI (net/core/dev.c, napi_schedule_prep + __napi_schedule)',
+      layer: 'Kernel · softirq scheduling',
+      abstraction: 'Interrupt-to-poll transition under load',
+      protocol: '—',
+      misconception: '"NAPI polls all the time, burning CPU." It polls only while packets keep arriving. If a poll returns less than its budget, NAPI re-enables interrupts and goes back to sleep — zero cost when idle.',
+      analogy: 'A restaurant that seats you immediately when empty, but switches to a "we will call the whole waiting list in batches" system at peak — the same staff serve far more people.',
+      command: 'cat /proc/net/softnet_stat   # per-CPU: processed, dropped, time_squeeze',
+      production: 'Column 3 of softnet_stat (time_squeeze) counts polls that hit netdev_budget before draining. Persistent nonzero values mean raising net.core.netdev_budget / netdev_budget_usecs, or enabling more queues.'
+    }
+  },
+
+  {
+    id: 'rx-softirq',
+    chapter: 23,
+    title: 'Softirq context: the bottom half runs',
+    node: 'softirq',
+    mode: 'kernel',
+    explain: {
+      what: 'On the way out of the interrupt (or at the next local_bh_enable), the kernel sees NET_RX_SOFTIRQ pending and runs net_rx_action. This executes with interrupts ENABLED but still in atomic context — no sleeping — so it can be preempted by hardware interrupts but not by ordinary processes. If softirqs keep firing beyond the budget, the work is handed to the per-CPU ksoftirqd/N kernel thread, which competes fairly with userspace.',
+      why: 'The two-level design gives the network stack a place to do real work quickly without blocking hardware, while ksoftirqd is the pressure valve that stops a packet flood from starving your applications entirely.',
+      component: 'net_rx_action / __do_softirq (kernel/softirq.c)',
+      layer: 'Kernel · softirq (bottom half) context',
+      abstraction: 'Deferrable atomic work with a fairness escape hatch',
+      protocol: '—',
+      misconception: '"Softirqs are threads." They usually run inline on whichever CPU took the interrupt; ksoftirqd is only the overflow path. That is why %si in mpstat can be pegged while ksoftirqd shows 0% CPU.',
+      analogy: 'The waiter who took your order finishing the paperwork at the counter right after — and only calling in the back-office clerk (ksoftirqd) when the queue gets absurd.',
+      command: 'mpstat -P ALL 1    # watch %soft per core\npidstat -t -p "$(pgrep -f ksoftirqd/0)" 1',
+      production: 'A ksoftirqd thread at 100% CPU is a classic DDoS or misconfigured-offload signature. Correlate with softnet_stat drops and check whether GRO/RSS are actually enabled.'
+    },
+    code: [
+      { title: 'The softirq table', lang: 'c', code: 'enum {\n    HI_SOFTIRQ = 0, TIMER_SOFTIRQ,\n    NET_TX_SOFTIRQ, NET_RX_SOFTIRQ,   /* <- ours, priority 3 */\n    BLOCK_SOFTIRQ, IRQ_POLL_SOFTIRQ,\n    TASKLET_SOFTIRQ, SCHED_SOFTIRQ,\n    HRTIMER_SOFTIRQ, RCU_SOFTIRQ,\n};' }
+    ]
+  },
+
+  {
+    id: 'rx-napi-poll',
+    chapter: 23,
+    title: 'The poll loop harvests the ring, GRO merges segments',
+    node: 'ringbuffer',
+    mode: 'kernel',
+    effects: ['ring-'],
+    explain: {
+      what: 'net_rx_action walks the poll_list and calls each device’s poll() with a budget (64 packets per device, 300 total by default). The driver reads descriptors with DD set, wraps each buffer in an sk_buff, and refills the ring with fresh pages. Then GRO — Generic Receive Offload — inspects consecutive segments of the same flow and merges them: our ten 1448-byte TLS-carrying segments coalesce into one 14,480-byte super-skb before ever reaching IP.',
+      why: 'GRO means the expensive per-packet path (IP, netfilter, TCP) runs once instead of ten times. It is the single largest software throughput win in the receive path.',
+      component: 'napi->poll() + napi_gro_receive (net/core/gro.c)',
+      layer: 'Kernel · driver + GRO',
+      abstraction: 'Batched harvesting with flow-aware coalescing',
+      protocol: '—',
+      misconception: '"GRO changes what the application receives." TCP is a byte stream — the app never sees packet boundaries anyway. GRO is transparent, except to tcpdump, where it makes you see impossible 14KB "packets" on a 1500-byte MTU link.',
+      analogy: 'A postal worker who staples the ten pages of one letter together before delivering, so you read it once instead of ten separate deliveries.',
+      command: 'ethtool -k enp3s0 | grep -E "generic-receive-offload|large-receive"',
+      production: 'Disable GRO (ethtool -K enp3s0 gro off) only when doing precise per-packet latency measurement or running a bridge/router where merging then re-splitting hurts. Everywhere else, leave it on.'
+    },
+    code: [
+      { title: 'Budget accounting', lang: 'c', code: 'static int net_rx_action(struct softirq_action *h)\n{\n    unsigned long time_limit = jiffies + usecs_to_jiffies(netdev_budget_usecs);\n    int budget = netdev_budget;          /* 300 */\n\n    for (;;) {\n        work = napi_poll(n, &repoll);    /* driver poll, <= 64 each */\n        budget -= work;\n        if (budget <= 0 || time_after_eq(jiffies, time_limit)) {\n            __raise_softirq_irqoff(NET_RX_SOFTIRQ);  /* time squeeze! */\n            break;\n        }\n    }\n}' }
+    ]
+  },
+
+  {
+    id: 'rx-ip-rcv',
+    chapter: 23,
+    title: 'netif_receive_skb → ip_rcv',
+    node: 'ip',
+    mode: 'kernel',
+    packet: {
+      label: 'Coalesced skb, 14,480 bytes',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Version/IHL': '4 / 5 (20 bytes)', 'Total Length': '14500', 'Src': '104.18.32.7', 'Dst': '192.168.1.23', 'TTL': '52', 'Proto': '6 (TCP)', 'Checksum': 'valid (offloaded)' }
+      }
+    },
+    explain: {
+      what: 'The skb leaves the driver via netif_receive_skb, taps registered by AF_PACKET (this is where tcpdump gets its copy), then dispatches on EtherType 0x0800 to ip_rcv. IP sanity-checks the header: version 4, IHL at least 5, total length not exceeding the skb, and — if the NIC did not already verify it — the header checksum. Fragments would be reassembled here; ours are not fragmented. The destination is a local address, so the packet is destined for this host.',
+      why: 'The IP layer is deliberately dumb: no state, no retransmission, no ordering. Its only job is "is this mine, and if not, where next" — everything reliable is built above it.',
+      component: 'ip_rcv / ip_rcv_finish (net/ipv4/ip_input.c)',
+      layer: 'Kernel · OSI L3',
+      abstraction: 'Best-effort datagram delivery',
+      protocol: 'IPv4 (RFC 791)',
+      misconception: '"IP guarantees the packet arrives intact." IPv4’s checksum covers the HEADER ONLY. Payload integrity is TCP’s (weak, 16-bit) checksum and, ultimately, TLS’s AEAD tag — which is the only cryptographically strong one in the stack.',
+      analogy: 'A sorting facility that reads only the address label and never opens the box.',
+      command: 'sudo tcpdump -ni enp3s0 "host 104.18.32.7 and port 443" -c 5',
+      production: 'nstat -az IpInHdrErrors / IpInAddrErrors are near-zero on healthy hosts; sustained nonzero values mean a broken sender, a broken middlebox, or something spraying malformed traffic at you.'
+    }
+  },
+
+  {
+    id: 'rx-netfilter-hooks',
+    chapter: 23,
+    title: 'Netfilter: PREROUTING, routing decision, INPUT',
+    node: 'netfilter',
+    mode: 'kernel',
+    explain: {
+      what: 'ip_rcv hands the skb to NF_INET_PRE_ROUTING, where raw, mangle, and nat tables get their say. Then ip_route_input_noref makes the routing decision: destination 192.168.1.23 is local, so the verdict is "deliver locally" rather than "forward". That routes the packet through NF_INET_LOCAL_IN, where the filter table’s INPUT chain runs your firewall rules — on a laptop, typically an ESTABLISHED,RELATED accept rule near the top.',
+      why: 'The hook order is the whole mental model of Linux firewalling: PREROUTING sees everything before the routing decision, INPUT only sees traffic for this host, FORWARD only traffic passing through. Rules put in the wrong chain silently never match.',
+      component: 'Netfilter hooks (net/netfilter/core.c, nf_hook_slow)',
+      layer: 'Kernel · L3 packet filtering',
+      abstraction: 'Hook points around the routing decision',
+      protocol: 'Netfilter / nftables',
+      misconception: '"iptables and nftables are different firewalls." Since kernel 4.18 iptables-nft is a compatibility front end that programs the SAME nf_tables engine. Mixing legacy and nft tools on one host is how rules mysteriously vanish.',
+      analogy: 'Airport security zones: everyone passes the first checkpoint, then arriving passengers and transfer passengers are screened at different desks with different rules.',
+      command: 'sudo nft list ruleset\nsudo iptables -nvL INPUT --line-numbers',
+      production: 'Rule ORDER is performance: put the conntrack ESTABLISHED,RELATED accept first so the 99% case matches in one comparison instead of traversing a hundred rules per packet.'
+    },
+    code: [
+      { title: 'Hook order for a locally-delivered packet', lang: 'c', code: 'NF_INET_PRE_ROUTING   (raw → conntrack → mangle → nat/DNAT)\n        |\n   [ routing decision: local? forward? ]\n        |  local\nNF_INET_LOCAL_IN      (mangle → filter INPUT)   <- your firewall rules\n        |\n   tcp_v4_rcv()' }
+    ]
+  },
+
+  {
+    id: 'rx-conntrack-established',
+    chapter: 23,
+    title: 'conntrack: ESTABLISHED, fast path',
+    node: 'conntrack',
+    mode: 'kernel',
+    explain: {
+      what: 'The conntrack hook computes the tuple (104.18.32.7:443 → 192.168.1.23:51324, proto TCP), hashes it, and finds the entry created when our SYN went out in chapter 8. State: ESTABLISHED, direction: REPLY. It validates the sequence numbers fall inside the expected window, refreshes the 5-day timer, and stamps ctinfo on the skb so the filter chain can match ct state established in a single comparison.',
+      why: 'Stateful firewalling means you write "allow what I started" once instead of enumerating every possible return path. It is also what makes NAT possible at all.',
+      component: 'nf_conntrack_in (net/netfilter/nf_conntrack_core.c)',
+      layer: 'Kernel · L3/L4 flow state',
+      abstraction: 'Connection state machine independent of the protocol stack',
+      protocol: 'Netfilter connection tracking',
+      misconception: '"conntrack is part of TCP." It is a completely separate state machine that shadows TCP by observing flags — which is why it also tracks UDP and ICMP "connections" that have no such concept, using timeouts instead.',
+      analogy: 'A bouncer with a guest list built from who walked out for a smoke — re-entry is allowed because your exit was recorded, not because anyone checked your ID again.',
+      command: 'sudo conntrack -L -p tcp --dport 443 | grep 51324\nsudo conntrack -S    # per-CPU insert/drop/invalid counters',
+      production: 'conntrack -S invalid counters climbing usually means asymmetric routing or aggressive TCP window scaling with nf_conntrack_tcp_be_liberal off — the kernel discards packets it thinks are out of window.'
+    }
+  },
+
+  {
+    id: 'rx-tcp-demux',
+    chapter: 23,
+    title: 'tcp_v4_rcv: find the socket by 4-tuple',
+    node: 'tcp',
+    mode: 'kernel',
+    explain: {
+      what: 'TCP hashes the 4-tuple (src 104.18.32.7:443, dst 192.168.1.23:51324) and looks it up in the ehash — the established-connections hash table. Hit: this is the socket the network service opened in chapter 7. TCP then validates the segment: is the checksum right, is the sequence number inside the receive window, does the ACK acknowledge data we actually sent. Only then is the payload accepted; the congestion window and RTT estimators update from the ACK.',
+      why: 'Demultiplexing by 4-tuple — not by port alone — is what allows thousands of simultaneous connections to port 443 from different peers, and two browser tabs to the same server, without confusion.',
+      component: 'tcp_v4_rcv / __inet_lookup_established (net/ipv4/tcp_ipv4.c)',
+      layer: 'Kernel · OSI L4',
+      abstraction: 'Connection demultiplexing and byte-stream reassembly',
+      protocol: 'TCP (RFC 9293)',
+      misconception: '"A port identifies a connection." A CONNECTION is identified by all four values plus protocol. That is why one listening port serves a million clients, and why a client can open many connections from different ephemeral ports to the same server.',
+      analogy: 'A large office where mail is sorted not by floor number alone but by (sender, sender-suite, floor, room) — otherwise every letter to floor 443 would end up in one pile.',
+      command: 'ss -tin "dst 104.18.32.7"   # rtt, cwnd, bytes_acked, retrans',
+      production: 'ss -ti is the highest-value TCP debugging command in existence: it shows rtt/rttvar, cwnd, ssthresh, retrans, and delivery_rate per socket. Slow transfer plus small cwnd plus retrans means loss, not server slowness.'
+    },
+    code: [
+      { title: 'The lookup', lang: 'c', code: 'tcp_v4_rcv(skb)\n  → __inet_lookup_skb()\n      → __inet_lookup_established(net, hashinfo,\n            saddr=104.18.32.7, sport=443,\n            daddr=192.168.1.23, dport=51324, dif)\n  → tcp_v4_do_rcv(sk, skb)\n      → tcp_rcv_established(sk, skb)   /* fast path: header prediction */' }
+    ]
+  },
+
+  {
+    id: 'rx-sk-recvq',
+    chapter: 23,
+    title: 'Payload queued to the socket receive buffer',
+    node: 'socketobj',
+    mode: 'kernel',
+    effects: ['queue+'],
+    state: { sock: 'ESTABLISHED', mem: 'kernel' },
+    explain: {
+      what: 'The 14,208 bytes of TLS records are appended to sk_receive_queue and rcv_nxt advances. The kernel updates the advertised receive window from the remaining buffer space (autotuned between tcp_rmem min and max) and arms the delayed-ACK timer — up to 40ms — hoping to piggyback the ACK on outgoing data rather than sending a bare one. The data is now the application’s to collect, but it still lives in kernel memory.',
+      why: 'The receive buffer is the flow-control valve: if the app stops reading, the buffer fills, the advertised window shrinks to zero, and the sender stops. Backpressure, implemented in hardware-adjacent software.',
+      component: 'sk_receive_queue + tcp_rcv_space_adjust (net/ipv4/tcp_input.c)',
+      layer: 'Kernel · L4 buffering',
+      abstraction: 'Flow control via advertised window',
+      protocol: 'TCP receive window (RFC 9293 §3.8)',
+      misconception: '"Data has arrived, so the app has it." Not remotely — it sits in kernel memory until the process issues a read. ss showing a large Recv-Q is the signature of an application too slow to drain its own sockets.',
+      analogy: 'Parcels stacked in the building’s lobby: delivered to the address, but not yet carried up to your apartment.',
+      command: 'ss -tm "dport = :443"    # skmem shows r(receive queue) and rb(buffer limit)',
+      production: 'net.ipv4.tcp_rmem autotuning handles most cases; only raise the max for genuine long-fat-network transfers. A persistent Recv-Q means fix the application, never the sysctl.'
+    }
+  },
+
+  {
+    id: 'rx-epoll-wake',
+    chapter: 23,
+    title: 'ep_poll_callback wakes the waiting thread',
+    node: 'scheduler',
+    mode: 'kernel',
+    effects: ['ctx'],
+    state: { proc: 'chrome netsvc PID 4903' },
+    explain: {
+      what: 'Queuing data calls sk->sk_data_ready → sock_def_readable, which walks the socket’s wait queue. Our socket is registered with an epoll instance, so the waiter is ep_poll_callback: it moves the epitem onto the ready list and wakes any thread blocked in epoll_wait. The scheduler marks that thread TASK_RUNNING, places it on a CPU runqueue, and — since it just woke from I/O and has slept recently — CFS/EEVDF gives it favourable placement, often preempting the current task immediately.',
+      why: 'This callback chain is why epoll scales: waking is O(1) in the number of registered fds because the readiness list is maintained incrementally, not rebuilt per call like select and poll.',
+      component: 'ep_poll_callback (fs/eventpoll.c) + scheduler wakeup (kernel/sched/core.c)',
+      layer: 'Kernel · I/O readiness + scheduling',
+      abstraction: 'Event-driven wakeup instead of polling',
+      protocol: '—',
+      misconception: '"epoll tells you data is ready." It tells you the fd is READY TO TRY. In edge-triggered mode you must read until EAGAIN, or the remaining bytes sit there and you never get another notification — the classic ET bug.',
+      analogy: 'The concierge does not shout down a list of every apartment; they ring only the one bell that has a parcel waiting.',
+      command: 'sudo perf sched latency --sort max | head -20',
+      production: 'Wakeup-to-run latency is where noisy neighbours hurt. On latency-sensitive services, watch sched:sched_wakeup → sched_switch delta, and consider isolcpus or cgroup cpu.weight before blaming the network.'
+    },
+    code: [
+      { title: 'The wakeup chain', lang: 'c', code: 'tcp_data_queue()\n  → sk->sk_data_ready(sk)          /* = sock_def_readable */\n      → wake_up_interruptible_sync_poll(&wq->wait, EPOLLIN)\n          → ep_poll_callback()      /* fs/eventpoll.c */\n              → list_add_tail(&epi->rdllink, &ep->rdllist)\n              → wake_up(&ep->wq)    /* the epoll_wait sleeper */\n                  → try_to_wake_up() → enqueue_task_fair() → resched' }
+    ]
+  },
+
+  {
+    id: 'rx-recvmsg-copy',
+    chapter: 23,
+    title: 'recvmsg(): copy_to_user, then ring 0 → ring 3',
+    node: 'syscallgate',
+    mode: 'user',
+    effects: ['flash'],
+    state: { mode: 'user', mem: 'copy', proc: 'chrome netsvc PID 4903' },
+    explain: {
+      what: 'epoll_wait returns with fd 42 readable; the network service calls recvmsg(). The kernel walks sk_receive_queue and copies bytes into the user-space buffer with copy_to_user — the one genuine memcpy across the privilege boundary — then frees the skbs and shrinks the receive queue. recvmsg returns 14208, the syscall handler executes sysretq, and the CPU drops from ring 0 back to ring 3. We are in userland again, for the first time since the request left.',
+      why: 'This copy is the price of the process isolation model: the kernel will not hand a raw pointer to its own memory to a user process. Zero-copy schemes (io_uring registered buffers, AF_XDP, sendfile) exist precisely to avoid it at high rates.',
+      component: 'tcp_recvmsg → skb_copy_datagram_iter → copy_to_user',
+      layer: 'Kernel → userspace boundary',
+      abstraction: 'Protected transfer across the privilege ring',
+      protocol: 'POSIX socket API (recvmsg(2))',
+      misconception: '"Zero-copy networking eliminates all copies." DMA already avoided the device copy; what remains is kernel→user. io_uring with registered buffers removes it for real, at the cost of a much more complex ownership model.',
+      analogy: 'A prison visitation window: nothing passes hand to hand — items are transferred through a controlled slot, inspected, and re-handed on the other side.',
+      command: 'sudo strace -e trace=epoll_wait,recvmsg -p 4903',
+      production: 'At 10Gbps+, copy_to_user shows up as raw CPU in perf. That is when io_uring or kernel-bypass earns its complexity; below that, ordinary sockets are fine and far easier to operate.'
+    },
+    code: [
+      { title: 'What strace sees', lang: 'bash', code: 'epoll_wait(3, [{events=EPOLLIN, data={fd=42}}], 128, 1000) = 1\nrecvmsg(42, {msg_iov=[{iov_base="\\x17\\x03\\x03\\x37\\x60...", iov_len=65536}],\n             msg_iovlen=1}, 0) = 14208\nrecvmsg(42, ..., 0) = -1 EAGAIN (Resource temporarily unavailable)\n#                       ^ drained: the correct way to stop reading' }
+    ]
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 24 — Back in the Browser
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'client-tls-decrypt',
+    chapter: 24,
+    title: 'BoringSSL decrypts the TLS records',
+    node: 'netservice',
+    mode: 'user',
+    state: { mode: 'user', proc: 'chrome netsvc PID 4903' },
+    packet: {
+      label: 'TLS application_data → plaintext',
+      layers: ['tls', 'http'],
+      fields: {
+        tls: { 'Content Type': '23 (application_data)', 'Version': '0x0303 (legacy field)', 'Length': '14203', 'Cipher': 'TLS_AES_128_GCM_SHA256', 'Auth Tag': '16 bytes, verified' },
+        http: { 'Frames': 'HEADERS + DATA (stream 1)' }
+      }
+    },
+    explain: {
+      what: 'The network service feeds the bytes to BoringSSL. Each record is decrypted with AES-128-GCM using the server_application_traffic_secret derived in the handshake, and the 16-byte authentication tag is verified BEFORE any plaintext is released. A single flipped bit anywhere in the record makes the tag fail and the connection is torn down — AEAD refuses to guess.',
+      why: 'Authenticated encryption is what makes TLS 1.3 safe by construction: there is no mode where you can act on unauthenticated data, which eliminated an entire decade of padding-oracle attacks.',
+      component: 'BoringSSL record layer (Chrome network service)',
+      layer: 'Userspace · OSI L6',
+      abstraction: 'Authenticated encryption over a byte stream',
+      protocol: 'TLS 1.3 (RFC 8446)',
+      misconception: '"HTTPS just encrypts." It also authenticates and provides integrity — and it is the integrity guarantee that stops your ISP injecting ads into pages, not the confidentiality one.',
+      analogy: 'A tamper-evident sealed envelope: you check the seal before reading, and a broken seal means you burn the letter unread.',
+      command: 'SSLKEYLOGFILE=/tmp/keys.log google-chrome  # then load the log into Wireshark',
+      production: 'AES-NI makes this nearly free on modern x86 (multiple GB/s per core). On CPUs without it, ChaCha20-Poly1305 is 3-4× faster — which is why mobile clients negotiate it and why cipher order should not be hardcoded.'
+    }
+  },
+
+  {
+    id: 'client-h2-reassemble',
+    chapter: 24,
+    title: 'HTTP/2 frames reassembled into a Response',
+    node: 'netservice',
+    mode: 'user',
+    packet: {
+      label: 'HEADERS + DATA, stream 1, END_STREAM',
+      layers: ['http'],
+      fields: {
+        http: { ':status': '200', 'content-type': 'application/json; charset=utf-8', 'content-encoding': 'gzip', 'cf-ray': '8f3a1c9d4e2b7a10-AMS', 'Frame type': '0x1 HEADERS, then 0x0 DATA ×2', 'Flags': 'END_HEADERS | END_STREAM' }
+      }
+    },
+    explain: {
+      what: 'The plaintext is a sequence of HTTP/2 frames, each with a 9-byte header (length, type, flags, stream id). The HEADERS frame is HPACK-decoded against the connection’s dynamic table — many header names and values are single-byte references to entries the server established earlier. DATA frames carry the gzipped body; the network service inflates it back to 14,208 bytes of JSON text, and END_STREAM closes stream 1. The TCP connection stays open.',
+      why: 'Framing plus stream ids is what let HTTP/2 kill head-of-line blocking at the application layer: this response arriving does not block any other in-flight request on the same connection.',
+      component: 'HTTP/2 session + HPACK decoder (net/http2 in Chromium)',
+      layer: 'Userspace · OSI L7',
+      abstraction: 'Multiplexed streams over one connection',
+      protocol: 'HTTP/2 (RFC 9113) + HPACK (RFC 7541)',
+      misconception: '"HTTP/2 eliminates head-of-line blocking." Only at the HTTP layer. One lost TCP segment still stalls EVERY stream on that connection, because TCP must deliver in order — the exact problem QUIC/HTTP3 was invented to solve.',
+      analogy: 'Several conversations interleaved on one phone line, each sentence tagged with which conversation it belongs to.',
+      command: 'chrome://net-export  →  load the capture at netlog-viewer.appspot.com',
+      production: 'Watch for stalls caused by SETTINGS_MAX_CONCURRENT_STREAMS (often 100 at the edge) — a client firing 500 parallel fetches queues 400 of them invisibly, and the "slow API" is actually your own concurrency.'
+    }
+  },
+
+  {
+    id: 'client-mojo-ipc',
+    chapter: 24,
+    title: 'Crossing processes: Mojo IPC to the renderer',
+    node: 'webapi',
+    mode: 'user',
+    when: { runtime: 'browser' },
+    state: { proc: 'chrome renderer PID 4821' },
+    explain: {
+      what: 'The network service (PID 4903) and the renderer (PID 4821) are separate OS processes with separate address spaces — the renderer has no socket, no TLS keys, and no ability to make a network connection itself. The response crosses via Mojo, Chromium’s IPC layer: control messages over a message pipe, body bytes over a shared-memory data pipe so the payload is not copied twice. In the renderer, Blink materialises a Response object with a ReadableStream body.',
+      why: 'Site isolation is why: a compromised renderer running attacker JavaScript must not be able to open arbitrary sockets or read another origin’s cookies. Network access is a privilege it simply does not hold.',
+      component: 'Mojo IPC + URLLoader (Chromium services/network)',
+      layer: 'Userspace · inter-process boundary',
+      abstraction: 'Capability-restricted multi-process browser architecture',
+      protocol: 'Mojo message pipes + shared-memory data pipes',
+      misconception: '"fetch() opens a socket." Your JavaScript never touches a socket. It sends a structured request to a privileged process that does the networking on your behalf and returns a sanitised result — which is precisely why CORS can be enforced at all.',
+      analogy: 'Ordering room service instead of walking into the kitchen: you state what you want through a controlled channel, and staff with the right access bring it.',
+      command: 'chrome://process-internals   # see the process-per-site breakdown',
+      production: 'Site isolation costs real memory (each origin its own renderer) but eliminated a whole class of Spectre-era cross-origin leaks. Enterprise policies that disable it trade security for RAM, usually unwisely.'
+    }
+  },
+
+  {
+    id: 'node-undici-response',
+    chapter: 24,
+    title: 'Node path: libuv sees readability, undici builds the Response',
+    node: 'undici',
+    mode: 'user',
+    when: { runtime: 'node' },
+    state: { proc: 'node PID 1337' },
+    explain: {
+      what: 'No IPC and no process boundary here: libuv’s epoll loop reports the socket readable, uv__read pulls the bytes, and undici — the HTTP client that backs global fetch since Node 18 — decrypts, parses, and constructs a WHATWG-compatible Response object whose body is a web ReadableStream. Same standard API surface as the browser, entirely different plumbing underneath.',
+      why: 'Node deliberately implemented the fetch STANDARD rather than a lookalike, so isomorphic code behaves identically — while keeping the freedom to use a completely different transport implementation.',
+      component: 'libuv + undici (lib/internal/deps/undici)',
+      layer: 'Node userspace · L7 client',
+      abstraction: 'Standards-compliant fetch over a native event loop',
+      protocol: 'HTTP/1.1 or HTTP/2 over TLS (undici)',
+      misconception: '"Node fetch is just node-fetch built in." It is undici — a from-scratch client with its own connection pooling, pipelining, and dispatcher API. Behaviour around keep-alive, proxies, and timeouts differs meaningfully from the old library.',
+      analogy: 'The same steering wheel and pedals in a different car: the driving interface is standardised even though the engine is not.',
+      command: 'node --experimental-network-inspection -e "fetch(\'https://api.shop.dev/products\')"',
+      production: 'Tune undici with a custom Agent: connections, pipelining, and above all headersTimeout/bodyTimeout — the defaults will happily hang a request far longer than your own SLA allows.'
+    },
+    code: [
+      { title: 'Explicit dispatcher', lang: 'js', code: "import { Agent, setGlobalDispatcher } from 'undici';\n\nsetGlobalDispatcher(new Agent({\n  connections: 64,          // per-origin socket pool\n  keepAliveTimeout: 10_000,\n  headersTimeout: 5_000,    // fail fast, do not hang\n  bodyTimeout: 10_000,\n}));" }
+    ]
+  },
+
+  {
+    id: 'fetch-promise-resolve',
+    chapter: 24,
+    title: 'The fetch Promise resolves — as a microtask',
+    node: 'eventloop',
+    mode: 'user',
+    effects: ['queue+'],
+    explain: {
+      what: 'The Response object exists, so the Promise returned by fetch() six chapters ago is resolved. Resolution does NOT run your code — it enqueues the reaction job on the microtask queue. The engine will drain that queue at the next checkpoint: after the current synchronous task finishes, before rendering, and before any timer or I/O callback in the macrotask queue.',
+      why: 'The two-queue design is what makes async ordering predictable: microtasks (promises, queueMicrotask, MutationObserver) always run to completion before the next macrotask (setTimeout, I/O, events).',
+      component: 'V8 microtask queue + HTML event loop',
+      layer: 'Userspace · JS runtime',
+      abstraction: 'Job queues with defined checkpoints',
+      protocol: 'ECMAScript job semantics + HTML event loop spec',
+      misconception: '"setTimeout(fn, 0) runs before a resolved promise." Never. The entire microtask queue drains before the next macrotask — and a microtask that queues more microtasks can starve the loop entirely, freezing the page.',
+      analogy: 'A manager who clears every sticky note on the monitor (microtasks) before opening the next item in the inbox (macrotasks).',
+      command: 'node -e "setTimeout(()=>console.log(\'timeout\'),0); Promise.resolve().then(()=>console.log(\'micro\')); console.log(\'sync\')"',
+      production: 'Long microtask chains are invisible to most profilers but block paint. Chrome DevTools Performance shows them inside the "Run Microtasks" block — where mysterious 200ms input delays love to hide.'
+    },
+    code: [
+      { title: 'Queue priority, demonstrated', lang: 'js', code: "console.log('1 sync');\nsetTimeout(() => console.log('4 macrotask'), 0);\nPromise.resolve().then(() => console.log('3 microtask'));\nconsole.log('2 sync');\n// 1 sync, 2 sync, 3 microtask, 4 macrotask — always this order" }
+    ]
+  },
+
+  {
+    id: 'await-resumes',
+    chapter: 24,
+    title: 'await resumes: the suspended function comes back to life',
+    node: 'appcode',
+    mode: 'user',
+    effects: ['queue-', 'ctx'],
+    explain: {
+      what: 'The event loop reaches its microtask checkpoint and runs the reaction job. V8 restores the suspended async function’s state — locals, closure environment, and the resume point recorded when it hit await — and execution continues on the line after the await, with response bound to the Response object. Everything about the last 250 milliseconds is now compressed into one ordinary local variable.',
+      why: 'async/await is a compiler transform, not a runtime pause: the function was turned into a state machine whose frame lived on the heap while the network did its work. That is why no thread was ever blocked.',
+      component: 'V8 async function resumption (generator-based state machine)',
+      layer: 'Userspace · JS execution',
+      abstraction: 'Coroutines over a single-threaded event loop',
+      protocol: '—',
+      misconception: '"await pauses the thread." It returns from the function entirely, registering a continuation. The thread went off and did other work — which is why code after an await sees a world that may have changed underneath it.',
+      analogy: 'A bookmark in a novel: the book was closed and shelved, the reader lived a whole day, and now they open to the exact page and sentence.',
+      command: 'node --stack-trace-limit=50 --async-stack-traces app.js',
+      production: 'Async stack traces cost a little memory and are worth every byte — without them a rejected promise gives you a stack that starts at the microtask, telling you nothing about who called what.'
+    },
+    code: [
+      { title: 'Where we resume', lang: 'js', code: "async function loadProducts() {\n  const response = await fetch('https://api.shop.dev/products?limit=20');\n  //               ^ chapter 4 suspended here; chapter 24 resumes here\n  if (!response.ok) throw new Error(`HTTP ${response.status}`);\n  const products = await response.json();   // next step\n  return products;\n}" }
+    ]
+  },
+
+  {
+    id: 'response-json-parse',
+    chapter: 24,
+    title: 'response.json(): drain the stream, decode, parse',
+    node: 'machinecode',
+    mode: 'user',
+    state: { mem: 'user' },
+    explain: {
+      what: 'A second await, because the body is a stream and may not have fully arrived. json() drains the ReadableStream, decodes the bytes as UTF-8 (this is why charset in Content-Type matters), and calls the engine’s JSON parser — a hand-written C++ scanner in V8, not JavaScript. It emits twenty objects with a shared hidden class, so property access on them will be monomorphic and inline-cacheable.',
+      why: 'The body is a separate await precisely because headers arrive before the body does: you can inspect status and headers and abort a 2GB download without ever reading it.',
+      component: 'Body mixin + V8 JSON parser (src/json/json-parser.cc)',
+      layer: 'Userspace · deserialization',
+      abstraction: 'Byte stream → UTF-8 text → JS object graph',
+      protocol: 'JSON (RFC 8259), UTF-8 (RFC 3629)',
+      misconception: '"response.ok is true whenever fetch resolves." fetch only rejects on NETWORK failure. A 500 resolves happily with ok:false — the single most common fetch bug in production code.',
+      analogy: 'Receiving a shipping manifest (headers) at the door, then unpacking and inventorying the crate (body) as a separate job.',
+      command: 'node -e "const s=JSON.stringify(Array.from({length:20},(_,i)=>({id:i,name:\'x\'}))); console.time(\'p\'); JSON.parse(s); console.timeEnd(\'p\')"',
+      production: 'JSON.parse is synchronous and blocking. Above a few megabytes, move it to a worker thread or use a streaming parser — a 30MB parse on the main thread is a 300ms frozen UI, every single time.'
+    },
+    code: [
+      { title: 'The correct shape', lang: 'js', code: "const response = await fetch(url);\nif (!response.ok) {                       // 4xx/5xx do NOT reject\n  throw new HttpError(response.status, await response.text());\n}\nconst products = await response.json();   // 20 objects in the JS heap\nconsole.log(products.length);             // 20" }
+    ]
+  },
+
+  {
+    id: 'render-paint',
+    chapter: 24,
+    title: 'setState → reconcile → layout → paint',
+    node: 'appcode',
+    mode: 'user',
+    explain: {
+      what: 'The component calls setState with the twenty products. React schedules a re-render, diffs the virtual DOM, and commits the minimal set of real DOM mutations. Those mutations dirty the layout, so the browser recalculates styles, runs layout (geometry), paints into layers, and the compositor hands them to the GPU. At the next vsync — within 16.7ms on a 60Hz display — the user finally SEES twenty products.',
+      why: 'This is the last hop of the entire journey, and the only one the user perceives. Everything else in twenty-four chapters existed to put these pixels on this screen.',
+      component: 'React reconciler + Blink style/layout/paint/composite',
+      layer: 'Userspace · rendering pipeline',
+      abstraction: 'Declarative state → pixels',
+      protocol: 'CSSOM + DOM specifications',
+      misconception: '"The DOM update paints immediately." Mutations are batched; the pipeline runs at the next frame. Reading offsetHeight right after a write forces a synchronous layout ("layout thrashing") and is how smooth lists become janky ones.',
+      analogy: 'Editing a document versus the printer producing a page — the edits accumulate, and the press runs on its own schedule.',
+      command: 'performance.mark(\'data\'); performance.measure(\'fetch→paint\', \'start\', \'data\');',
+      production: 'Core Web Vitals live here: LCP is when the largest element paints, INP measures interaction responsiveness. A fast API with a slow render still fails the user, and the field data will tell you so.'
+    },
+    code: [
+      { title: 'The component', lang: 'js', code: "function ProductList() {\n  const [products, setProducts] = useState([]);\n\n  useEffect(() => {\n    let alive = true;\n    fetch('https://api.shop.dev/products?limit=20')\n      .then((r) => r.json())\n      .then((d) => { if (alive) setProducts(d); });\n    return () => { alive = false; };    // no setState after unmount\n  }, []);\n\n  return <ul>{products.map(p => <li key={p.id}>{p.name}</li>)}</ul>;\n}" }
+    ]
+  },
+
+  {
+    id: 'finale-recap',
+    chapter: 24,
+    title: 'One line of JavaScript, roughly 250 milliseconds',
+    node: 'appcode',
+    mode: 'user',
+    effects: ['zoomout', 'flash'],
+    state: { mode: 'user', mem: 'user' },
+    explain: {
+      what: 'Recap. One await fetch() traversed roughly forty distinct components: V8 compiled it, libuv or the network service dispatched it, the kernel crossed the ring boundary twice on this laptop alone (and twice more on every server involved), a NIC serialized it onto copper, a home router NAT-ed it, an ISP hauled it across a continent, DNS resolved it, TLS secured it, Cloudflare inspected and routed it, nginx proxied it, iptables DNAT-ed it into a container, NestJS routed and validated it, Prisma compiled SQL, PostgreSQL planned, executed, and MVCC-checked it, and every one of those steps ran again in reverse. Budget: ~30ms DNS (cold), ~45ms TCP+TLS, ~120ms network round trips, ~4ms application, ~0.4ms database, ~10ms render.',
+      why: 'Notice the shape of that budget. The database — the part engineers optimize first — was the smallest slice by two orders of magnitude. The network and the handshakes dominate, which is why connection reuse, edge caching, and fewer round trips beat micro-optimizations every time.',
+      component: 'The entire stack, top to bottom and back',
+      layer: 'All of them',
+      abstraction: 'Layered protocols: every layer a promise the one below keeps',
+      protocol: 'HTTP · TLS · TCP · IP · Ethernet · DNS · BGP · SQL',
+      misconception: '"The connection closes now." It does not. The TCP connection, the TLS session, the HTTP/2 stream multiplexer, the origin-pull tunnel, the pooled Postgres connection — all stay open and warm. The NEXT fetch skips chapters 5 through 13 entirely and returns in about 40 milliseconds. That is the whole reason keep-alive exists.',
+      analogy: 'You have just watched one letter travel from a thought in someone’s head to a printed page on the other side of the world and back — and the postal routes stay open for the next one.',
+      command: 'curl -w "dns:%{time_namelookup} connect:%{time_connect} tls:%{time_appconnect} ttfb:%{time_starttransfer} total:%{time_total}\\n" -o /dev/null -s https://api.shop.dev/products?limit=20',
+      production: 'The highest-leverage production wins mirror this chapter list exactly: keep connections alive, cache at the edge, put the database in the same AZ, index for your ORDER BY, and stop making round trips you do not need. Everything else is rounding error.'
+    },
+    code: [
+      { title: 'The whole journey, one line', lang: 'js', code: "const res = await fetch('https://api.shop.dev/products?limit=20');\nconst products = await res.json();\n// ~40 components · 2 user/kernel crossings here · 4+ on the servers\n// 3 TLS sessions · 1 SQL query · 20 rows · 14,208 bytes of JSON\n// and the sockets are still open, waiting for you to do it again." },
+      { title: 'What the second call costs', lang: 'bash', code: '# cold\ndns:0.031 connect:0.048 tls:0.092 ttfb:0.241 total:0.253\n\n# warm — same connection, DNS cached, TLS session reused\ndns:0.000 connect:0.000 tls:0.000 ttfb:0.038 total:0.041' }
+    ]
+  }
+
 ];
