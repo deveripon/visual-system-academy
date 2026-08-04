@@ -1,0 +1,1423 @@
+// Packet Odyssey — Steps C: chapters 17-24 (origin → app → DB → full return journey)
+// Defines window.STEPS_C. Plain ES2019, no imports, no trailing calls.
+window.STEPS_C = [
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 17 — Docker Networking (BRANCH: docker / baremetal)
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'deploy-branch',
+    chapter: 17,
+    title: 'How is the app deployed?',
+    node: 'proxy',
+    mode: 'remote',
+    branch: {
+      key: 'deploy',
+      question: 'nginx has the request decrypted and parsed, ready to forward upstream. Where does the NestJS app actually live?',
+      options: [
+        { value: 'docker', label: 'Docker container', hint: 'Published port, iptables DNAT, bridge, veth pair — the modern default' },
+        { value: 'baremetal', label: 'Bare metal + systemd', hint: 'node process straight on the host, loopback interface, zero NAT' }
+      ]
+    },
+    explain: {
+      what: 'The nginx worker holds a fully parsed plaintext request — GET /products?limit=20 — and consults its upstream configuration to decide the next hop. That one config line encodes an entire deployment philosophy: is the app a namespaced container reached through NAT and a virtual switch, or a plain process one loopback hop away?',
+      why: 'Everything in this chapter — DNAT, bridges, veth pairs, network namespaces — exists only on one side of this fork. The bytes are identical either way; the plumbing is not.',
+      component: 'nginx upstream module (ngx_http_upstream)',
+      layer: 'Origin server · L7 routing decision',
+      abstraction: 'Reverse proxy → application hop',
+      protocol: 'HTTP/1.1 upstream (plaintext, TLS already terminated)',
+      misconception: '"Docker networking is slow because it is virtualized." The bridge and veth path costs well under 10 microseconds per packet — usually invisible next to a single database query.',
+      analogy: 'The mailroom has the letter out of its envelope. Does it go to a desk in this building (loopback), or into the sealed wing with its own internal mail system (container)?',
+      command: 'nginx -T | grep -A4 "location /"',
+      production: 'SREs pin this choice down with infrastructure-as-code; the upstream block is where you configure keepalive connection pools, timeouts, and retries against the app tier.'
+    }
+  },
+
+  {
+    id: 'docker-proxy-upstream',
+    chapter: 17,
+    title: 'nginx forwards to the published port',
+    node: 'proxy',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'GET /products?limit=20 → upstream',
+      layers: ['ip', 'tcp', 'http'],
+      fields: {
+        ip: { 'Src': '172.17.0.1', 'Dst': '172.17.0.1 (published port)', 'TTL': '64', 'Proto': '6 (TCP)' },
+        tcp: { 'Src Port': '52814', 'Dst Port': '443', 'Flags': 'PSH, ACK' },
+        http: { 'Method': 'GET', 'Path': '/products?limit=20', 'Host': 'api.shop.dev', 'X-Forwarded-For': '203.0.113.77', 'X-Forwarded-Proto': 'https', 'Connection': 'keep-alive' }
+      }
+    },
+    state: { proc: 'nginx worker' },
+    explain: {
+      what: 'The container was started with a published port — host 443 mapped to container 3000, bound on the docker0 gateway address. nginx opens (or reuses, via upstream keepalive) a TCP connection to 172.17.0.1:443 and writes the request as plaintext HTTP/1.1, stamping on X-Forwarded-For and X-Forwarded-Proto so the app can reconstruct who really called and how.',
+      why: 'The proxy deliberately targets the published port, not the container IP: container IPs are ephemeral and change on every restart, while the published port is a stable contract maintained by dockerd.',
+      component: 'nginx proxy_pass + docker port publishing (-p 443:3000)',
+      layer: 'Origin server · L4/L7 boundary',
+      abstraction: 'Stable published endpoint hiding an ephemeral container',
+      protocol: 'HTTP/1.1 over TCP',
+      misconception: '"docker-proxy (the userland process) copies every packet." On modern Linux the iptables DNAT path carries the traffic; the userland proxy mostly covers edge cases like localhost hairpins, and many production hosts disable it outright.',
+      analogy: 'You address mail to the building’s front desk (published port), never to the tenant’s room number (container IP) — tenants move rooms constantly.',
+      command: 'docker port api\n# 443/tcp -> 172.17.0.1:443',
+      production: 'Always set proxy_http_version 1.1 and an upstream keepalive pool; without it nginx opens a fresh TCP handshake to the container per request and you burn ephemeral ports under load.'
+    },
+    code: [
+      { title: 'nginx.conf (upstream)', lang: 'bash', code: 'upstream nest_app {\n    server 172.17.0.1:443;   # docker-published, container listens on 3000\n    keepalive 32;\n}\n\nlocation / {\n    proxy_pass http://nest_app;\n    proxy_http_version 1.1;\n    proxy_set_header Connection "";\n    proxy_set_header Host $host;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n}' }
+    ],
+    prod: {
+      title: 'Caddy forwards to the published port',
+      explain: { production: 'Island Tours runs Caddy: reverse_proxy gets keepalive and X-Forwarded-* headers by default, and Caddy auto-renews the public TLS cert via ACME — one less 3 a.m. page.' },
+      code: [
+        { title: 'Caddyfile', lang: 'bash', code: 'api.islandtours.io {\n    reverse_proxy 172.17.0.1:443 {\n        transport http {\n            keepalive 30s\n        }\n    }\n}' }
+      ]
+    }
+  },
+
+  {
+    id: 'docker-dnat',
+    chapter: 17,
+    title: 'iptables DNAT rewrites the destination',
+    node: 'dnat',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'DNAT: :443 → 172.17.0.2:3000',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src': '172.17.0.1', 'Dst (before)': '172.17.0.1', 'Dst (after)': '172.17.0.2', 'TTL': '64' },
+        tcp: { 'Src Port': '52814', 'Dst Port (before)': '443', 'Dst Port (after)': '3000', 'Flags': 'PSH, ACK' }
+      }
+    },
+    quiz: {
+      q: 'The container will reply from 172.17.0.2:3000 — an address nginx never connected to. How does the reply get translated back so nginx recognizes the flow?',
+      options: [
+        'nginx keeps a table of container IPs and rewrites replies itself',
+        'A second, mirrored iptables rule matches all traffic sourced from port 3000',
+        'conntrack recorded the original tuple at DNAT time and automatically un-NATs every reply packet of that flow'
+      ],
+      answer: 2,
+      explain: 'NAT in Linux is stateful: the first packet of a flow traverses the nat table once, conntrack stores both the original and reply tuples, and every subsequent packet — in either direction — is rewritten from that entry without touching iptables rules again.'
+    },
+    explain: {
+      what: 'The locally generated packet hits the nat table OUTPUT hook, jumps into the DOCKER chain, and matches the rule dockerd installed at container start: destination port 443 → DNAT to 172.17.0.2:3000. The kernel rewrites the destination IP and port in place and conntrack records the translation as a flow entry.',
+      why: 'This is the entire mechanism behind -p 443:3000. No proxy process, no copying — one header rewrite in the kernel, then normal routing takes over and sends the packet toward docker0.',
+      component: 'netfilter nat table, DOCKER chain (net/netfilter/nf_nat_core.c)',
+      layer: 'Server kernel · L3/L4 NAT',
+      abstraction: 'Port publishing as a stateful header rewrite',
+      protocol: 'Netfilter NAT (DNAT target)',
+      misconception: '"Every packet of the connection is matched against iptables NAT rules." Only the FIRST packet of a flow traverses the nat table; the verdict is cached in conntrack and replayed for the rest of the connection.',
+      analogy: 'A mail-forwarding order filed once at the post office: the first letter sets it up, and every later letter is silently redirected without anyone re-reading the order.',
+      command: 'sudo iptables -t nat -nvL DOCKER',
+      production: 'Debugging "port published but unreachable" almost always ends in this chain — check DOCKER-USER for drop rules, verify net.ipv4.ip_forward=1, and remember firewalld or ufw can silently reorder these chains.'
+    },
+    code: [
+      { title: 'iptables -t nat -nvL DOCKER', lang: 'bash', code: 'Chain DOCKER (2 references)\n pkts bytes target  prot opt in  out     source     destination\n  312 18720 RETURN  all  --  docker0 *   0.0.0.0/0  0.0.0.0/0\n 8841  530K DNAT    tcp  --  !docker0 *  0.0.0.0/0  0.0.0.0/0   tcp dpt:443 to:172.17.0.2:3000' },
+      { title: 'The flow in conntrack', lang: 'bash', code: 'sudo conntrack -L -p tcp --dport 3000\n# tcp 6 431999 ESTABLISHED\n#   src=172.17.0.1 dst=172.17.0.1 sport=52814 dport=443\n#   src=172.17.0.2 dst=172.17.0.1 sport=3000 dport=52814 [ASSURED]' }
+    ]
+  },
+
+  {
+    id: 'docker-bridge',
+    chapter: 17,
+    title: 'docker0: a switch made of software',
+    node: 'bridge',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'Frame forwarded across docker0',
+      layers: ['eth', 'ip', 'tcp'],
+      fields: {
+        eth: { 'Src MAC': '02:42:ac:11:00:01 (docker0)', 'Dst MAC': '02:42:ac:11:00:02 (container)', 'EtherType': '0x0800' },
+        ip: { 'Src': '172.17.0.1', 'Dst': '172.17.0.2', 'TTL': '64' }
+      }
+    },
+    explain: {
+      what: 'Routing says 172.17.0.2 is reachable via docker0, a kernel bridge device — a Layer 2 learning switch implemented entirely in software. The bridge consults its FDB (forwarding database, the software CAM table), finds the container’s MAC 02:42:ac:11:00:02 behind one specific port, and forwards the frame there.',
+      why: 'A bridge lets any number of containers share one subnet and talk to each other at L2 speed without per-container routes. It is the same code path a hardware switch implements in silicon — net/bridge/ in the kernel tree.',
+      component: 'Linux bridge (net/bridge/br_forward.c), FDB',
+      layer: 'Server kernel · OSI L2',
+      abstraction: 'Virtual Ethernet switch inside the kernel',
+      protocol: 'Ethernet bridging (IEEE 802.1D)',
+      misconception: '"docker0 is a special Docker technology." It is a bone-stock Linux bridge — brctl and ip link manage it identically to one created by hand; Docker just automates the setup.',
+      analogy: 'An office switchboard that has learned which extension sits behind which jack — frames go straight to the right port, never broadcast to everyone.',
+      command: 'bridge fdb show br docker0 | grep -v permanent',
+      production: 'With br_netfilter loaded, bridged frames also traverse iptables FORWARD — the DOCKER-USER chain exists precisely so operators can firewall inter-container traffic without dockerd overwriting their rules.'
+    },
+    code: [
+      { title: 'Bridge topology', lang: 'bash', code: 'ip link show master docker0\n# 7: vethd3adb33@if6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500\n#    master docker0 state UP\n\nbridge fdb show br docker0\n# 02:42:ac:11:00:02 dev vethd3adb33 master docker0' }
+    ]
+  },
+
+  {
+    id: 'docker-veth',
+    chapter: 17,
+    title: 'The veth pair: a cable with two ends',
+    node: 'veth',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'Frame crosses the namespace boundary',
+      layers: ['eth', 'ip', 'tcp'],
+      fields: {
+        eth: { 'Ingress': 'vethd3adb33 (host side)', 'Egress': 'eth0@if7 (container side)' },
+        ip: { 'Src': '172.17.0.1', 'Dst': '172.17.0.2' }
+      }
+    },
+    explain: {
+      what: 'The bridge port vethd3adb33 is one end of a veth pair — a virtual patch cable. Whatever is transmitted into one end is received on the other, and the other end lives inside the container’s network namespace, where it is named eth0. veth_xmit hands the skb directly to the peer device’s receive path; no wire, no DMA, just a pointer handoff.',
+      why: 'Namespaces isolate; veth pairs selectively reconnect. This is the only doorway between the host network and the container network — everything the container sends or receives crosses this pair.',
+      component: 'veth driver (drivers/net/veth.c)',
+      layer: 'Server kernel · virtual L1/L2',
+      abstraction: 'Point-to-point virtual cable between namespaces',
+      protocol: 'Ethernet (virtual)',
+      misconception: '"The container’s eth0 is a slice of the physical NIC." It is pure software — the physical NIC may never be involved at all for host↔container traffic.',
+      analogy: 'Two tin cans on a string, with one can inside a sealed room. The string through the wall is the only way sound gets in or out.',
+      command: 'ip -d link show vethd3adb33   # note: veth, master docker0, link-netnsid 0',
+      production: 'The @if7 suffix pairs the interfaces: peer ifindex. When chasing packet loss, run tcpdump on the veth host end and on eth0 inside the container — if a packet appears on one but not the other, blame netfilter, not the "cable".'
+    },
+    code: [
+      { title: 'Finding the peer', lang: 'bash', code: '# host side\nip link show vethd3adb33\n# 7: vethd3adb33@if6: ... master docker0\n\n# container side (ifindex 6 = eth0)\ndocker exec api ip link show eth0\n# 6: eth0@if7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500' }
+    ]
+  },
+
+  {
+    id: 'docker-cnetns',
+    chapter: 17,
+    title: 'Inside the container network namespace',
+    node: 'cnetns',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'Request arrives at container eth0',
+      layers: ['ip', 'tcp', 'http'],
+      fields: {
+        ip: { 'Src': '172.17.0.1', 'Dst': '172.17.0.2', 'TTL': '64' },
+        tcp: { 'Src Port': '52814', 'Dst Port': '3000', 'Flags': 'PSH, ACK' },
+        http: { 'Method': 'GET', 'Path': '/products?limit=20', 'X-Forwarded-Proto': 'https' }
+      }
+    },
+    state: { proc: 'node PID 1 (container)' },
+    explain: {
+      what: 'The frame surfaces on eth0 inside the container’s network namespace — created at container start via clone(CLONE_NEWNET). This namespace owns a private view of the entire network stack: its own interfaces (lo + eth0), its own routing table, its own iptables rules, its own conntrack, its own /proc/net. From in here, the host’s NICs simply do not exist.',
+      why: 'Network namespaces are the isolation half of container networking: the app binds 0.0.0.0:3000 without ever colliding with the host’s port 3000, because "port 3000" is namespace-scoped.',
+      component: 'Network namespace (net/core/net_namespace.c)',
+      layer: 'Server kernel · namespace isolation',
+      abstraction: 'A private copy of the network stack per container',
+      protocol: '—',
+      misconception: '"Containers virtualize the kernel." There is exactly ONE kernel; a namespace is just a scoping mechanism on kernel objects. That is why containers boot in milliseconds and why a kernel bug is shared by every container on the host.',
+      analogy: 'Apartment units in one building: each has its own front door, mailbox, and room numbers, but they all share the same foundation, plumbing, and electrical grid.',
+      command: 'sudo nsenter -t "$(docker inspect -f "{{.State.Pid}}" api)" -n ss -ltn',
+      production: 'When exec-ing into distroless containers with no ss/ip binaries, nsenter from the host into the container netns is the debugging move — host tools, container view.'
+    },
+    code: [
+      { title: 'The namespace view', lang: 'bash', code: 'docker exec api ip addr show eth0\n# 6: eth0@if7: mtu 1500\n#    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0\n\ndocker exec api ip route\n# default via 172.17.0.1 dev eth0\n# 172.17.0.0/16 dev eth0 scope link src 172.17.0.2' }
+    ]
+  },
+
+  {
+    id: 'bm-proxy-loopback',
+    chapter: 17,
+    title: 'proxy_pass to localhost:3000',
+    node: 'proxy',
+    mode: 'remote',
+    when: { deploy: 'baremetal' },
+    packet: {
+      label: 'GET /products?limit=20 → 127.0.0.1:3000',
+      layers: ['ip', 'tcp', 'http'],
+      fields: {
+        ip: { 'Src': '127.0.0.1', 'Dst': '127.0.0.1', 'TTL': '64' },
+        tcp: { 'Src Port': '52814', 'Dst Port': '3000', 'Flags': 'PSH, ACK' },
+        http: { 'Method': 'GET', 'Path': '/products?limit=20', 'X-Forwarded-For': '203.0.113.77', 'X-Forwarded-Proto': 'https' }
+      }
+    },
+    state: { proc: 'nginx worker' },
+    explain: {
+      what: 'No containers here: the node process listens directly on 127.0.0.1:3000, and nginx forwards over loopback. One connect(), one write() — the request never leaves the machine, never touches NAT, never crosses a namespace boundary.',
+      why: 'Binding the app to 127.0.0.1 instead of 0.0.0.0 is a deliberate security posture: the only way to reach it is through the proxy, which owns TLS, rate limiting, and access logs.',
+      component: 'nginx proxy_pass → loopback TCP',
+      layer: 'Origin server · L4',
+      abstraction: 'Co-located processes talking over local TCP',
+      protocol: 'HTTP/1.1 over TCP (loopback)',
+      misconception: '"Loopback TCP still goes down to the NIC and back." It never touches hardware — the kernel short-circuits the packet from its own IP layer output straight back into its IP input path.',
+      analogy: 'Interoffice mail between two desks in the same room: it still gets an envelope and a stamp (TCP/IP headers), but it never sees a mail truck.',
+      command: 'ss -ltn "sport = :3000"',
+      production: 'Loopback MSS is huge (MTU 65536) and latency is single-digit microseconds; if proxy→app latency shows up in traces on a bare-metal box, suspect the app event loop, not the transport.'
+    },
+    code: [
+      { title: 'nginx.conf', lang: 'bash', code: 'location / {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_http_version 1.1;\n    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n    proxy_set_header X-Forwarded-Proto $scheme;\n}' }
+    ]
+  },
+
+  {
+    id: 'bm-loopback-dev',
+    chapter: 17,
+    title: 'lo: the interface that is pure software',
+    node: 'ip',
+    mode: 'remote',
+    when: { deploy: 'baremetal' },
+    packet: {
+      label: 'Looped back inside the kernel',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src': '127.0.0.1', 'Dst': '127.0.0.1', 'Device': 'lo (MTU 65536)' },
+        tcp: { 'Src Port': '52814', 'Dst Port': '3000' }
+      }
+    },
+    explain: {
+      what: 'The packet routes via the local table (127.0.0.0/8 dev lo) into loopback_xmit — drivers/net/loopback.c — which immediately re-queues the skb into the receive path of the same kernel. No NIC, no IRQ, no DMA, no ring buffer: transmit IS receive. The node process itself is supervised by a systemd unit that restarts it on crash and captures stdout into the journal.',
+      why: 'Loopback exists so the entire socket API works uniformly whether the peer is across the planet or across the process table — the app cannot tell the difference, by design.',
+      component: 'Loopback driver (drivers/net/loopback.c) + systemd service',
+      layer: 'Server kernel · virtual L1',
+      abstraction: 'The network stack talking to itself',
+      protocol: 'TCP/IP over a software device',
+      misconception: '"localhost traffic can skip TCP." It cannot — full TCP state machines run on both ends. The kernel skips checksumming (the memory bus does not flip bits), but sequencing, windows, and retransmit timers all exist.',
+      analogy: 'A theater intercom wired from the stage to the stage: full protocol, zero distance.',
+      command: 'ip -s link show lo   # RX and TX counters are always identical',
+      production: 'systemctl status api and journalctl -u api -f are the bare-metal equivalents of docker logs; Restart=always plus StartLimitBurst is the poor man’s orchestrator.'
+    },
+    code: [
+      { title: '/etc/systemd/system/api.service', lang: 'bash', code: '[Unit]\nDescription=NestJS API\nAfter=network.target postgresql.service\n\n[Service]\nExecStart=/usr/bin/node /srv/api/dist/main.js\nEnvironment=NODE_ENV=production PORT=3000\nRestart=always\nRestartSec=2\nUser=api\n\n[Install]\nWantedBy=multi-user.target' }
+    ]
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 18 — The NestJS Application
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'nest-kernel-ff',
+    chapter: 18,
+    title: 'Fast-forward: the server kernel did all of this too',
+    node: 'tcp',
+    mode: 'remote',
+    effects: ['queue+', 'flash'],
+    state: { proc: 'node PID 1 (container)', sock: 'ESTABLISHED (proxy → app)' },
+    explain: {
+      what: 'Pause. Everything you watched on the laptop — ring buffers, IRQs, NAPI, ip_rcv, netfilter, TCP demux — just happened AGAIN inside the server’s kernel for this connection. The proxy’s SYN sat in the listen socket’s SYN queue, graduated to the accept queue on the final ACK, and now the request bytes are queued on an ESTABLISHED socket waiting for the app to read them. We compressed roughly thirty steps into this one.',
+      why: 'Every machine in the chain runs the full stack — client, router, edge, proxy host, app host, DB host. Understanding it once means understanding it everywhere; we will replay the receive path in loving detail on the return trip (chapter 23).',
+      component: 'Server TCP stack: SYN queue + accept queue (net/ipv4/tcp_input.c)',
+      layer: 'Server kernel · L4',
+      abstraction: 'The same kernel machinery, other side of the wire',
+      misconception: '"The server just receives HTTP requests." The server’s kernel does every bit of work the client’s did — and under load, its accept queue overflowing (ss -ltn Recv-Q at backlog) is a classic silent request-dropper.',
+      analogy: 'You toured the sausage factory once; the restaurant kitchen has an identical factory in the basement. We wave at it through the window this time.',
+      protocol: 'TCP (RFC 9293) — passive open',
+      command: 'ss -ltn "sport = :3000"   # Recv-Q = connections waiting in accept queue',
+      production: 'Watch net.core.somaxconn and the listen() backlog argument together — the kernel silently caps backlog at somaxconn. Overflow shows up in nstat -az TcpExtListenDrops long before users file tickets.'
+    },
+    code: [
+      { title: 'Accept queue in one line', lang: 'bash', code: 'ss -ltn "sport = :3000"\n# State   Recv-Q  Send-Q  Local Address:Port\n# LISTEN  0       511     0.0.0.0:3000\n#         ^ conns accepted-but-unread   ^ backlog limit\n\nnstat -az TcpExtListenDrops TcpExtListenOverflows' }
+    ]
+  },
+
+  {
+    id: 'nest-epoll-accept',
+    chapter: 18,
+    title: 'epoll wakes node; accept4() returns fd 18',
+    node: 'appserver',
+    mode: 'remote',
+    effects: ['queue-', 'ctx'],
+    state: {
+      proc: 'node PID 1 (container)',
+      fds: [
+        ['0', '/dev/null'],
+        ['1', 'pipe:[dockerd json-file log]'],
+        ['2', 'pipe:[dockerd json-file log]'],
+        ['13', 'anon_inode:[eventpoll] (libuv)'],
+        ['17', 'socket:[TCP 0.0.0.0:3000 LISTEN]'],
+        ['18', 'socket:[TCP 172.17.0.2:3000 ↔ proxy]']
+      ]
+    },
+    explain: {
+      what: 'The listen socket becoming readable means "connection waiting". libuv’s epoll_wait returns inside the node process, and the connection callback calls accept4() with SOCK_NONBLOCK | SOCK_CLOEXEC — the kernel pops the connection off the accept queue and hands back file descriptor 18. Node wraps it in a net.Socket and starts watching IT for readability too.',
+      why: 'This is the server half of the event-loop story: one thread, one epoll instance, thousands of sockets. accept4 beats accept because it sets non-blocking atomically — no separate fcntl race.',
+      component: 'libuv uv__server_io → uv__accept (deps/uv/src/unix/stream.c)',
+      layer: 'Server userspace · syscall boundary',
+      abstraction: 'Readiness-driven accept loop',
+      protocol: 'Berkeley sockets API',
+      misconception: '"Node spawns a thread per connection." One event-loop thread owns every socket; the worker threadpool is for file I/O and crypto, not network sockets.',
+      analogy: 'A single receptionist with a wall of doorbell lights — a light blinks (epoll), they buzz the visitor in (accept4), pin a numbered badge on them (fd 18), and go back to watching the wall.',
+      command: 'sudo strace -e trace=epoll_wait,accept4 -p "$(docker inspect -f "{{.State.Pid}}" api)"',
+      production: 'File descriptor exhaustion is the classic Node outage: every socket is an fd, the default ulimit may be 1024, and leaked keep-alive sockets hit EMFILE. Raise LimitNOFILE in the unit or the container spec, and graph fd counts.'
+    },
+    code: [
+      { title: 'strace of the wakeup', lang: 'bash', code: 'epoll_wait(13, [{events=EPOLLIN, data={fd=17}}], 1024, -1) = 1\naccept4(17, {sa_family=AF_INET, sin_port=htons(52814),\n            sin_addr="172.17.0.1"}, [16],\n        SOCK_CLOEXEC|SOCK_NONBLOCK) = 18\nepoll_ctl(13, EPOLL_CTL_ADD, 18, {events=EPOLLIN, data={fd=18}}) = 0' }
+    ]
+  },
+
+  {
+    id: 'nest-llhttp',
+    chapter: 18,
+    title: 'llhttp parses the raw request bytes',
+    node: 'appserver',
+    mode: 'remote',
+    explain: {
+      what: 'fd 18 turns readable; node reads the raw bytes and feeds them to llhttp — Node’s HTTP/1.1 parser, generated from a TypeScript grammar into C by Fedor Indutny as the successor to http_parser. It walks the bytes in a single pass, firing callbacks: on_method, on_url, on_header_field, on_header_value, on_headers_complete. Out the other side comes req.method = "GET", req.url = "/products?limit=20", and a headers object.',
+      why: 'Parsing HTTP by hand is a minefield of request-smuggling bugs — llhttp is strict about things like bare CR, duplicate Content-Length, and chunked-encoding edge cases precisely because proxies and apps disagreeing on message boundaries is an attack class.',
+      component: 'llhttp (deps/llhttp), invoked from lib/_http_server.js',
+      layer: 'Server userspace · L7 parsing',
+      abstraction: 'Byte stream → structured request object',
+      protocol: 'HTTP/1.1 (RFC 9112)',
+      misconception: '"The request arrives as an object." It arrives as bytes that might be split across multiple TCP segments or glued together with the next request — llhttp is a resumable state machine precisely because message boundaries and packet boundaries are unrelated.',
+      analogy: 'A court stenographer converting a continuous stream of speech into structured transcript entries — never waiting for the speaker to finish the sentence before starting to write.',
+      command: 'node -e "console.log(process.versions.llhttp)"',
+      production: 'llhttp enforces max header size (16KB default, --max-http-header-size); oversized cookie storms from misbehaving clients produce 431s here, one layer before your framework ever sees the request.'
+    },
+    code: [
+      { title: 'The bytes on fd 18', lang: 'bash', code: 'GET /products?limit=20 HTTP/1.1<CRLF>\nHost: api.shop.dev<CRLF>\nX-Forwarded-For: 203.0.113.77<CRLF>\nX-Forwarded-Proto: https<CRLF>\nConnection: keep-alive<CRLF>\naccept: application/json<CRLF>\n<CRLF>            # blank line = end of headers' },
+      { title: 'llhttp callbacks fired', lang: 'c', code: 'on_message_begin()\non_method("GET")\non_url("/products?limit=20")\non_header_field("Host")   → on_header_value("api.shop.dev")\non_header_field("X-Forwarded-Proto") → on_header_value("https")\non_headers_complete()      // no body for GET\non_message_complete()' }
+    ]
+  },
+
+  {
+    id: 'nest-context',
+    chapter: 18,
+    title: 'The Nest application context (built long ago)',
+    node: 'appserver',
+    mode: 'remote',
+    explain: {
+      what: 'The request now enters Express, which NestJS wraps. Everything expensive happened at boot: NestFactory.create(AppModule) walked the module graph, instantiated every provider exactly once (singleton scope), resolved the dependency-injection tree, and compiled the route table. Per request, none of that repeats — the request simply flows through pre-wired handler chains.',
+      why: 'This is why DI frameworks pay off on servers: construction cost is amortized to zero, wiring is declarative, and swapping a real ProductsService for a mock in tests is a one-line module override.',
+      component: 'NestFactory + NestApplicationContext (@nestjs/core)',
+      layer: 'Server userspace · application framework',
+      abstraction: 'Inversion of control — the framework calls you',
+      protocol: '—',
+      misconception: '"Decorators run on every request." @Controller, @Get, @Injectable execute ONCE, at class-definition time, writing routing metadata via Reflect. At request time Nest only reads the compiled result.',
+      analogy: 'A restaurant kitchen doing its mise en place before service: when the order arrives, nobody is out shopping for onions.',
+      protocol: 'Reflect metadata + DI container (framework-internal)',
+      command: 'docker logs api | head -20   # the boot-time route map log',
+      production: 'Slow cold starts in Nest are almost always eager module construction (DB pings in constructors). Move I/O into onModuleInit, and keep request-scoped providers rare — each one forces per-request subtree re-instantiation.'
+    },
+    code: [
+      { title: 'src/main.ts', lang: 'js', code: "import { NestFactory } from '@nestjs/core';\nimport { AppModule } from './app.module';\n\nasync function bootstrap() {\n  const app = await NestFactory.create(AppModule);\n  app.setGlobalPrefix('');\n  await app.listen(3000, '0.0.0.0');\n}\nbootstrap();" }
+    ]
+  },
+
+  {
+    id: 'nest-middleware',
+    chapter: 18,
+    title: 'Middleware chain: helmet, cors, logger',
+    node: 'middleware',
+    mode: 'remote',
+    quiz: {
+      q: 'nginx forwarded this request as plaintext HTTP. How can the app still know the client originally connected over HTTPS?',
+      options: [
+        'It cannot — that information is lost at the proxy',
+        'nginx added X-Forwarded-Proto: https, and with "trust proxy" enabled Express surfaces it as req.secure',
+        'The kernel marks sockets that were ever encrypted'
+      ],
+      answer: 1,
+      explain: 'The X-Forwarded-* convention carries the original client IP and scheme across the proxy hop. It only works if the app explicitly trusts the proxy (app.set("trust proxy", 1)) — trusting it blindly lets any direct caller spoof their IP.'
+    },
+    explain: {
+      what: 'The request runs the Express middleware stack in registration order: helmet stamps defensive headers (X-Content-Type-Options, Strict-Transport-Security…), the CORS layer checks Origin against the allowlist, and the logger middleware starts a timer and tags the request with an id. Each middleware calls next() to pass the baton; any one of them could end the request instead.',
+      why: 'Middleware is the place for cross-cutting concerns that apply before routing even matters — security headers, compression, body parsing, request logging.',
+      component: 'Express middleware stack (helmet, cors, morgan/nestjs-pino)',
+      layer: 'Server userspace · L7 pipeline',
+      abstraction: 'Chain of responsibility over the request object',
+      protocol: 'HTTP semantics (RFC 9110)',
+      misconception: '"CORS is enforced by the server." The server merely EMITS Access-Control-Allow-* headers; the browser does all enforcing. curl ignores CORS entirely — it is a browser courtesy, not a security boundary for your API.',
+      analogy: 'Airport checkpoints before the gates: ID check, security scan, customs — each can wave you through or stop you, and none cares which flight you board.',
+      command: 'curl -is http://172.17.0.1:443/products?limit=20 | head -12',
+      production: 'Order bugs are the classic failure: register the logger first or you will never log requests rejected by CORS; register body-parser limits early or a 50MB JSON body gets buffered before anything can refuse it.'
+    },
+    code: [
+      { title: 'Registration order matters', lang: 'js', code: "// main.ts — runs top to bottom per request\napp.use(helmet());\napp.enableCors({ origin: ['https://shop.dev'], credentials: true });\napp.use(requestLogger);          // starts res-time timer\napp.set('trust proxy', 1);       // believe X-Forwarded-* from nginx" }
+    ]
+  },
+
+  {
+    id: 'nest-router',
+    chapter: 18,
+    title: 'Router match: GET /products → ProductsController',
+    node: 'controller',
+    mode: 'remote',
+    explain: {
+      what: 'Nest’s RouterExplorer compiled every @Controller + @Get decorator into an Express route table at boot. The path /products, method GET, matches the pattern registered for ProductsController.findAll — path-to-regexp does the matching, and the query string is already parsed into req.query = { limit: "20" }. Note the type: it is a STRING at this point.',
+      why: 'Declarative routing keeps the URL structure in one greppable place next to the handler code, and the framework can enumerate all routes at boot — which is also how it prints the route map and how OpenAPI generation works.',
+      component: 'RouterExplorer + path-to-regexp (@nestjs/core)',
+      layer: 'Server userspace · L7 dispatch',
+      abstraction: 'URL pattern → handler method binding',
+      protocol: 'HTTP routing conventions (REST)',
+      misconception: '"Route matching is a hash lookup." It is an ordered scan of compiled regexes — route registration ORDER matters, and a greedy /:id route declared before /products/featured will shadow it.',
+      analogy: 'A theater usher with the seating chart memorized before doors opened — your ticket string maps to one exact seat, instantly.',
+      command: 'docker logs api 2>&1 | grep "Mapped"   # Nest prints: Mapped {/products, GET} route',
+      production: 'Route-not-found (404) rates per path prefix are a cheap canary: a deploy that renames an endpoint shows up as a 404 cliff within seconds if you graph them.'
+    },
+    code: [
+      { title: 'products.controller.ts', lang: 'js', code: "@Controller('products')\nexport class ProductsController {\n  constructor(private readonly products: ProductsService) {}\n\n  @Get()                       // GET /products\n  findAll(@Query() query: ListProductsDto) {\n    return this.products.findAll(query.limit);\n  }\n}" }
+    ]
+  },
+
+  {
+    id: 'nest-pipes-dto',
+    chapter: 18,
+    title: 'Guards, then pipes: "20" becomes 20, validated',
+    node: 'middleware',
+    mode: 'remote',
+    explain: {
+      what: 'Before the handler body runs, Nest executes its request lifecycle: guards first (none registered on this route — a public endpoint), then pipes. The global ValidationPipe takes req.query, instantiates ListProductsDto, and class-transformer converts "20" (a string — URLs have no types) into the number 20. class-validator then checks @IsInt, @Min(1), @Max(100). Invalid input short-circuits into a 400 with a machine-readable error body; the handler never runs.',
+      why: 'Validation at the boundary means everything past this line can trust its inputs — no defensive re-checking inside services, and no LIMIT 999999 reaching the database because someone edited a URL.',
+      component: 'ValidationPipe (@nestjs/common) + class-validator + class-transformer',
+      layer: 'Server userspace · input boundary',
+      abstraction: 'Untrusted strings → typed, validated domain values',
+      protocol: '—',
+      misconception: '"TypeScript types validate at runtime." Types are erased at compile time; without a runtime validator, query.limit typed as number would happily hold the string "20" — or "DROP TABLE". The DTO decorators are what actually run.',
+      analogy: 'The bouncer checks IDs at the door so no one inside the club has to card anyone again.',
+      command: 'curl -i "http://172.17.0.1:443/products?limit=banana"   # → 400 Bad Request',
+      production: 'Always set whitelist: true and forbidNonWhitelisted: true — silently accepting unknown query params is how mass-assignment bugs ship. transform: true is what makes @Type coercion actually happen.'
+    },
+    code: [
+      { title: 'list-products.dto.ts', lang: 'js', code: "export class ListProductsDto {\n  @Type(() => Number)   // '20' → 20\n  @IsInt()\n  @Min(1)\n  @Max(100)             // cap what a URL can ask of the DB\n  limit: number = 20;\n}\n\n// main.ts\napp.useGlobalPipes(new ValidationPipe({\n  transform: true, whitelist: true, forbidNonWhitelisted: true,\n}));" }
+    ]
+  },
+
+  {
+    id: 'nest-controller',
+    chapter: 18,
+    title: 'ProductsController.findAll() executes',
+    node: 'controller',
+    mode: 'remote',
+    explain: {
+      what: 'Nest invokes the handler with the validated DTO. The controller does almost nothing — by design. It translates HTTP-shaped input into a domain call (findAll(20)) and will translate the domain result back into an HTTP response. The return value is a Promise; Nest awaits it and wires the resolution into the response pipeline automatically.',
+      why: 'Thin controllers keep transport concerns (status codes, headers, DTOs) separate from business logic, so the same service can serve HTTP today and a GraphQL resolver or message queue consumer tomorrow, untouched.',
+      component: 'ProductsController (@nestjs/core route handler invocation)',
+      layer: 'Server userspace · presentation layer',
+      abstraction: 'HTTP endpoint → domain method adapter',
+      protocol: 'REST conventions',
+      misconception: '"Returning a Promise from a handler needs special handling." Nest awaits any returned Promise natively — explicitly calling res.json() yourself actually OPTS OUT of interceptors and serialization.',
+      analogy: 'A waiter taking your order to the kitchen: they do not cook, they translate table-speak into kitchen-speak and back.',
+      command: 'docker exec api node -e "console.log(process.memoryUsage().heapUsed)"',
+      production: 'Wrap handlers with p99 latency histograms per route (Prometheus + @willsoto/nestjs-prometheus) — per-route breakdown is the difference between "the API is slow" and "findAll is slow".'
+    },
+    code: [
+      { title: 'The handler call, desugared', lang: 'js', code: "// what Nest effectively does:\nconst dto = await validationPipe.transform(req.query);\nconst result = await controller.findAll(dto);   // ← we are here\n// result: Promise<Product[]> — pending on the DB" }
+    ],
+    prod: {
+      title: 'ToursController.findAll() executes',
+      explain: { production: 'Island Tours’ version is a @Controller("tours") whose findAll returns prisma.tour.findMany — same shape, different nouns. Boring symmetry is the goal.' },
+      code: [
+        { title: 'tours.controller.ts', lang: 'js', code: "@Controller('tours')\nexport class ToursController {\n  constructor(private readonly tours: ToursService) {}\n\n  @Get()               // GET /tours\n  findAll() {\n    return this.tours.findAll();\n  }\n}" }
+      ]
+    }
+  },
+
+  {
+    id: 'nest-service',
+    chapter: 18,
+    title: 'ProductsService: the business logic layer',
+    node: 'service',
+    mode: 'remote',
+    explain: {
+      what: 'The service is where domain rules live: which products are listable (published, not soft-deleted), default ordering, the take cap. It composes a Prisma query and awaits it. The moment that await executes, this entire call chain suspends — controller, service, everything — and the node event loop is free to accept OTHER requests while Postgres works.',
+      why: 'This suspension is the entire economic argument for Node on I/O-heavy APIs: one thread multiplexes thousands of in-flight requests because "waiting for the database" costs no thread at all.',
+      component: 'ProductsService (@Injectable singleton)',
+      layer: 'Server userspace · domain layer',
+      abstraction: 'Business rules over a data-access API',
+      protocol: '—',
+      misconception: '"await blocks the server." It suspends only THIS request’s continuation. The event loop keeps spinning — that is why one slow query does not freeze the API, but one synchronous JSON.parse of a 100MB string absolutely does.',
+      analogy: 'A chef who plates other orders while one dish braises in the oven — the oven timer (Promise) will call them back.',
+      command: 'docker exec api node -e "const s=process.hrtime.bigint(); setImmediate(()=>console.log(Number(process.hrtime.bigint()-s)/1e6, \'ms loop lag\'))"',
+      production: 'Event-loop lag (loopMonitor / perf_hooks monitorEventLoopDelay) is THE node health metric: p99 lag above ~50ms means CPU-bound work is starving every request, and no amount of pods-with-the-same-code will fix it.'
+    },
+    code: [
+      { title: 'products.service.ts', lang: 'js', code: "@Injectable()\nexport class ProductsService {\n  constructor(private readonly prisma: PrismaService) {}\n\n  findAll(limit = 20) {\n    return this.prisma.product.findMany({\n      where: { published: true },\n      orderBy: { id: 'asc' },\n      take: limit,\n    });\n  }\n}" }
+    ],
+    prod: {
+      title: 'ToursService: the business logic layer',
+      explain: { production: 'Island Tours: return this.prisma.tour.findMany({ take: 20 }) — twenty tours, default order. Every abstraction layer above and below this line is identical to the shop.' },
+      code: [
+        { title: 'tours.service.ts', lang: 'js', code: "@Injectable()\nexport class ToursService {\n  constructor(private readonly prisma: PrismaService) {}\n\n  findAll() {\n    return this.prisma.tour.findMany({ take: 20 });\n  }\n}" }
+      ]
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 19 — Prisma & the Connection Pool
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'prisma-findmany',
+    chapter: 19,
+    title: 'prisma.product.findMany({ take: 20 })',
+    node: 'prisma',
+    mode: 'remote',
+    explain: {
+      what: 'The service calls the generated Prisma Client. That client is not hand-written: prisma generate read schema.prisma and emitted a fully typed client where product.findMany exists as a real method with a real TypeScript signature. Calling it builds a JSON protocol message describing the intended query — model, operation, arguments, selection set — and hands it to the query engine.',
+      why: 'Type-safe data access catches "you selected a column that does not exist" at compile time instead of at 3 a.m. The generated client is the schema, projected into the type system.',
+      component: 'Prisma Client (@prisma/client, generated)',
+      layer: 'Server userspace · data-access layer',
+      abstraction: 'Typed query builder over relational SQL',
+      protocol: 'Prisma internal JSON-RPC to the query engine',
+      misconception: '"Prisma is an ORM that hides SQL." It is closer to a typed query builder with an explicit compilation step — there is no lazy-loading proxy magic, and every query you write maps to SQL you can print.',
+      analogy: 'Ordering from a menu the kitchen printed itself: you cannot order a dish that does not exist, because the menu was generated from the pantry.',
+      command: 'npx prisma generate && npx prisma studio',
+      production: 'Set DEBUG="prisma:query" or the log:["query"] client option in staging so every emitted SQL statement and its duration lands in your logs — the fastest way to catch an accidental N+1.'
+    },
+    code: [
+      { title: 'schema.prisma', lang: 'js', code: 'model Product {\n  id        Int      @id @default(autoincrement())\n  name      String\n  priceCents Int\n  published Boolean  @default(false)\n  createdAt DateTime @default(now())\n\n  @@index([published, id])\n}' },
+      { title: 'The call', lang: 'js', code: "const rows = await prisma.product.findMany({\n  where:   { published: true },\n  orderBy: { id: 'asc' },\n  take:    20,\n});\n// rows: Product[] — fully typed, no `any` anywhere" }
+    ],
+    prod: {
+      title: 'prisma.tour.findMany({ take: 20 })',
+      explain: { production: 'Island Tours queries the Tour model — same client, same engine, same pool. Twenty tours, typed end to end.' },
+      code: [
+        { title: 'schema.prisma (Island Tours)', lang: 'js', code: 'model Tour {\n  id        Int      @id @default(autoincrement())\n  title     String\n  island    String\n  seats     Int\n  priceCents Int\n\n  @@index([island])\n}' },
+        { title: 'The call', lang: 'js', code: 'const tours = await prisma.tour.findMany({ take: 20 });' }
+      ]
+    }
+  },
+
+  {
+    id: 'prisma-engine-sql',
+    chapter: 19,
+    title: 'The query engine compiles it to SQL',
+    node: 'prisma',
+    mode: 'remote',
+    explain: {
+      what: 'Prisma’s query engine — historically a Rust binary spoken to over a local channel, now increasingly a WASM/TypeScript compiler in the same process — turns the JSON query document into real parameterised SQL. Note what it does with take: 20: it becomes LIMIT $3, a bind parameter, not string concatenation. The column list is explicit; SELECT * never appears.',
+      why: 'A compilation step means one query description can target Postgres, MySQL, or SQLite dialects, and parameterisation makes SQL injection structurally impossible rather than merely discouraged.',
+      component: 'Prisma query engine (query-engine, Rust/WASM)',
+      layer: 'Server userspace · SQL generation',
+      abstraction: 'Query AST → dialect-specific SQL',
+      protocol: 'PostgreSQL SQL dialect',
+      misconception: '"An ORM emits terrible SQL." For simple reads it emits exactly what you would write by hand. The pathological queries come from relation traversal in loops (N+1) — which is a code-shape problem, not a code-generation one.',
+      analogy: 'A compiler emitting assembly: you write intent, it writes the instructions, and you can always ask to see the listing.',
+      command: 'DEBUG="prisma:query" node dist/main.js',
+      production: 'Log slow queries on BOTH sides — Prisma’s query event gives you duration as the app sees it (including pool wait), pg_stat_statements gives you what the database saw. The delta between them IS your pool contention.'
+    },
+    code: [
+      { title: 'Emitted SQL', lang: 'sql', code: 'SELECT "public"."Product"."id",\n       "public"."Product"."name",\n       "public"."Product"."priceCents",\n       "public"."Product"."published",\n       "public"."Product"."createdAt"\nFROM "public"."Product"\nWHERE "public"."Product"."published" = $1\nORDER BY "public"."Product"."id" ASC\nLIMIT $2 OFFSET $3;\n\n-- params: [true, 20, 0]' }
+    ]
+  },
+
+  {
+    id: 'pool-checkout',
+    chapter: 19,
+    title: 'Checking a connection out of the pool',
+    node: 'pool',
+    mode: 'remote',
+    effects: ['pool+'],
+    explain: {
+      what: 'The engine needs a database connection. It does not open one — TCP handshake plus TLS plus Postgres auth plus backend fork is tens of milliseconds. Instead it borrows one of the connections opened at boot and held idle. The pool is a semaphore over a fixed array: if all connection_limit slots are busy, this request WAITS in a queue, and that wait time is invisible to the database.',
+      why: 'Postgres allocates a whole OS process per connection with its own work_mem; thousands of connections will destroy a database that would happily serve the same traffic over twenty. The pool is the throttle that protects it.',
+      component: 'Prisma connection pool (default connection_limit = num_cpus * 2 + 1)',
+      layer: 'Server userspace · resource pooling',
+      abstraction: 'Bounded reuse of expensive kernel + server resources',
+      protocol: '—',
+      misconception: '"A bigger pool is faster." Past the database’s CPU/IO capacity a bigger pool just moves the queue from your app into Postgres, where it is harder to see and where every waiter holds a process. Little’s Law beats optimism.',
+      analogy: 'A library with twenty study rooms. Adding a hundred people to the waiting list does not create rooms; it just makes the list longer and the librarian sadder.',
+      command: 'psql -h 10.0.0.12 -c "SELECT state, count(*) FROM pg_stat_activity GROUP BY 1;"',
+      production: 'Set pool_timeout and alarm on it: a P2024 "timed out fetching a connection" storm means either a slow query is holding connections or you have leaked transactions. For serverless, put PgBouncer in transaction mode in front and set connection_limit=1.'
+    },
+    code: [
+      { title: 'Pool configuration', lang: 'bash', code: '# .env — pool knobs ride on the connection URL\nDATABASE_URL="postgresql://api:***@10.0.0.12:5432/shop?connection_limit=17&pool_timeout=10&connect_timeout=5"\n\n# 17 = (8 vCPU * 2) + 1  → Prisma default heuristic' },
+      { title: 'Who holds what', lang: 'sql', code: "SELECT pid, state, wait_event_type, wait_event,\n       now() - query_start AS runtime, left(query, 60)\nFROM pg_stat_activity\nWHERE datname = 'shop'\nORDER BY runtime DESC NULLS LAST;" }
+    ]
+  },
+
+  {
+    id: 'pg-wire-extended',
+    chapter: 19,
+    title: 'Parse / Bind / Execute — the extended query protocol',
+    node: 'pool',
+    mode: 'remote',
+    packet: {
+      label: 'PG wire: Parse, Bind, Describe, Execute, Sync',
+      layers: ['tcp', 'payload'],
+      fields: {
+        tcp: { 'Src Port': '41022', 'Dst Port': '5432', 'Flags': 'PSH, ACK' },
+        payload: { 'P (Parse)': 'stmt "s1" ← SELECT … LIMIT $2 OFFSET $3', 'B (Bind)': 'portal "" ← [true, 20, 0]', 'D (Describe)': 'portal ""', 'E (Execute)': 'max_rows = 0 (all)', 'S (Sync)': 'end of message group' }
+      }
+    },
+    explain: {
+      what: 'The driver speaks the PostgreSQL frontend/backend protocol v3 in EXTENDED query mode: a Parse message ships the SQL text with $-placeholders and names the prepared statement; Bind supplies the actual parameter values and creates a portal; Execute runs the portal; Sync closes the message group and asks for ReadyForQuery. Each message is a one-byte type tag, a four-byte length, then the payload.',
+      why: 'Separating plan-time from bind-time means the same statement can be re-executed with new parameters without reparsing, and — crucially — parameters travel out-of-band, so a value can never be mistaken for SQL syntax.',
+      component: 'PostgreSQL wire protocol v3 (extended query)',
+      layer: 'Server userspace · L7 database protocol',
+      abstraction: 'Prepared statement + portal execution',
+      protocol: 'PostgreSQL FE/BE protocol v3',
+      misconception: '"Prepared statements are only about speed." Their headline benefit is safety: parameters are typed values in a separate field, so injection cannot happen no matter what the user typed.',
+      analogy: 'A form letter (Parse) plus a merge field list (Bind) — the mail merge cannot turn a customer name into a new paragraph of instructions.',
+      command: 'sudo tcpdump -i any -A "port 5432 and tcp[tcpflags] & tcp-push != 0"',
+      production: 'Prepared statements are per-BACKEND, so they break through PgBouncer in transaction mode — hence pgbouncer=true in the Prisma URL, which switches the driver to unnamed statements.'
+    },
+    code: [
+      { title: 'Message frames on the wire', lang: 'c', code: "'P'  len=0x0000006E  \"s1\\0\"  \"SELECT ... LIMIT $2 OFFSET $3\\0\"  0x0000\n'B'  len=0x00000032  \"\\0\"  \"s1\\0\"  nparams=3  [1,'t'] [2,'20'] [1,'0']\n'D'  len=0x00000006  'P'  \"\\0\"\n'E'  len=0x00000009  \"\\0\"  max_rows=0\n'S'  len=0x00000004" }
+    ]
+  },
+
+  {
+    id: 'pg-egress-compressed',
+    chapter: 19,
+    title: 'Yes — the whole kernel egress path. Again.',
+    node: 'tcp',
+    mode: 'remote',
+    effects: ['flash', 'zoomout'],
+    packet: {
+      label: 'Query bytes → 10.0.0.12:5432',
+      layers: ['eth', 'ip', 'tcp', 'payload'],
+      fields: {
+        eth: { 'Src MAC': '02:42:ac:11:00:02 (container eth0)', 'Dst MAC': '02:42:ac:11:00:01 (docker0)' },
+        ip: { 'Src': '172.17.0.2 → SNAT 10.0.0.9', 'Dst': '10.0.0.12', 'TTL': '64', 'Proto': '6 (TCP)' },
+        tcp: { 'Src Port': '41022', 'Dst Port': '5432', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'write() on the pooled socket, ring 3 → ring 0, copy into the socket send buffer, tcp_sendmsg segments it, ip_queue_xmit adds the header, netfilter OUTPUT and POSTROUTING run (MASQUERADE rewrites the container source to the host’s 10.0.0.9), the qdisc dequeues, the driver DMAs it to the NIC, and it crosses the datacenter fabric to the database host — where the entire receive path runs in ITS kernel. We are compressing about forty steps into this one panel, because you have already earned them.',
+      why: 'Every hop in a distributed system pays this cost. That is why "just add a microservice" is never free: each network call is two full kernel traversals plus a wire, and 500 microseconds of it is measurable at scale.',
+      component: 'Full TCP/IP egress path (net/ipv4/tcp_output.c → drivers)',
+      layer: 'Server kernel · L2-L4',
+      abstraction: 'Everything from chapters 6-11, replayed in one breath',
+      protocol: 'TCP/IP',
+      misconception: '"A database call is one operation." It is a network round trip with all the machinery that implies — which is why batching twenty queries into one saves far more than twenty times the SQL parse cost.',
+      analogy: 'The montage in the middle of the movie: we already showed you the training, so now you get the drumbeat and a wipe cut.',
+      command: 'sudo tcpdump -ni any host 10.0.0.12 and port 5432 -c 5',
+      production: 'Same-AZ database latency should be ~0.2-0.5ms RTT. If your p50 query time is 3ms for a primary-key lookup, you are paying cross-AZ or cross-region tolls, not database time.'
+    }
+  },
+
+  {
+    id: 'pg-socket-arrival',
+    chapter: 19,
+    title: 'The bytes land on the Postgres socket',
+    node: 'postgres',
+    mode: 'remote',
+    state: { proc: 'postgres backend PID 8842', sock: 'ESTABLISHED (app ↔ 10.0.0.12:5432)' },
+    packet: {
+      label: 'Parse/Bind/Execute queued on fd',
+      layers: ['tcp', 'payload'],
+      fields: {
+        tcp: { 'Src Port': '41022', 'Dst Port': '5432', 'Seq': '+0x6E', 'Flags': 'PSH, ACK' },
+        payload: { 'Bytes': '178', 'Messages': 'P, B, D, E, S' }
+      }
+    },
+    explain: {
+      what: 'On the database host the receive path completes and the bytes are queued on the socket owned by backend process 8842 — the dedicated Postgres process that has served this pooled connection since boot. It was blocked in a latch/epoll wait inside secure_read; the data makes it runnable and the scheduler puts it back on a CPU.',
+      why: 'One backend per connection is Postgres’ core architectural choice: strong isolation, easy crash containment, cheap shared-memory coordination — and the reason connection counts must be governed by a pool.',
+      component: 'Postgres backend socket read (backend/libpq/pqcomm.c)',
+      layer: 'Database host · userspace/kernel boundary',
+      abstraction: 'Persistent per-connection server process',
+      protocol: 'PostgreSQL FE/BE v3 over TCP',
+      misconception: '"Postgres is multithreaded." Through version 18 it is process-per-connection; threading has been a long-running proposal precisely because processes make connection scaling expensive.',
+      analogy: 'A dedicated case worker who has your file open on their desk and has been waiting for your next letter — no queue, no re-explaining your history.',
+      command: 'psql -h 10.0.0.12 -c "SELECT pid, backend_start, client_addr FROM pg_stat_activity WHERE pid = 8842;"',
+      production: 'max_connections is a memory decision, not a throughput one: each backend reserves work_mem PER SORT NODE. 500 connections × 4MB work_mem × 3 sorts is 6GB of possible allocation nobody budgeted for.'
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 20 — Inside PostgreSQL
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'pg-backend-process',
+    chapter: 20,
+    title: 'Backend PID 8842: forked long ago by the postmaster',
+    node: 'postgres',
+    mode: 'remote',
+    state: { proc: 'postgres backend PID 8842' },
+    explain: {
+      what: 'The postmaster — the supervisor process that owns the shared memory segment — accepted this connection at pool-warmup time, forked a child, and that child ran authentication (scram-sha-256), set the search_path, and has been this connection’s exclusive server ever since. Alongside it run the background workers: checkpointer, walwriter, autovacuum launcher, bgwriter, stats collector.',
+      why: 'Fork-per-connection gives every session its own memory and crash domain: a backend that segfaults is reaped and the postmaster restarts the cluster into recovery rather than serving corrupted state.',
+      component: 'postmaster + backend (backend/postmaster/postmaster.c)',
+      layer: 'Database host · process architecture',
+      abstraction: 'Process-per-session with shared memory',
+      protocol: '—',
+      misconception: '"Connections are cheap, just open more." Each backend is a fork plus ~10MB RSS plus catalog caches. Going from 100 to 1000 connections often makes throughput go DOWN — context switching and lock contention eat the gains.',
+      analogy: 'A law firm assigning you one attorney for the life of your case, all of them sharing the same case-file room (shared_buffers).',
+      command: 'ps -eo pid,comm,args | grep "^ *8842\\|postgres:"',
+      production: 'Watch for "FATAL: sorry, too many clients already" — it means max_connections is hit and your pool math (pods × connection_limit) exceeded the server. Count pods, not processes.'
+    },
+    code: [
+      { title: 'The process family', lang: 'bash', code: 'postgres: checkpointer\npostgres: background writer\npostgres: walwriter\npostgres: autovacuum launcher\npostgres: logical replication launcher\npostgres: api shop 10.0.0.9(41022) idle      <- PID 8842, ours\npostgres: api shop 10.0.0.9(41024) idle' }
+    ]
+  },
+
+  {
+    id: 'pg-parse-analyze',
+    chapter: 20,
+    title: 'Parser and analyzer: text → parse tree → query tree',
+    node: 'postgres',
+    mode: 'remote',
+    explain: {
+      what: 'The raw SQL text goes through the flex/bison grammar (scan.l, gram.y) producing a raw parse tree — pure syntax, no meaning. The analyzer then walks it doing catalog lookups: is there a relation named Product? (pg_class), what are its columns and types? (pg_attribute), does the user hold SELECT on it? (pg_class.relacl). The output is a Query tree with every name resolved to an OID.',
+      why: 'Splitting syntax from semantics is what lets Postgres give you "column p.nmae does not exist" with a helpful HINT instead of a parser error — by the time it fails, it knows what columns DO exist.',
+      component: 'Parser + analyzer (backend/parser/analyze.c)',
+      layer: 'Database · query pipeline stage 1',
+      abstraction: 'SQL text → semantically resolved query tree',
+      protocol: 'SQL:2016 dialect',
+      misconception: '"Prepared statements skip parsing." Parse happens once per named statement per BACKEND — reconnect, or move to a new pooled connection, and it parses again.',
+      analogy: 'Reading a sentence for grammar, then looking up every proper noun in a directory to confirm those people actually exist.',
+      command: 'psql -c "SELECT oid, relname, relkind, reltuples FROM pg_class WHERE relname = \'Product\';"',
+      production: 'Catalog bloat from thousands of temp tables makes this stage slow in a way no EXPLAIN will show. If parse time creeps, check pg_class row counts and vacuum the catalogs.'
+    },
+    code: [
+      { title: 'Catalog lookups behind the scenes', lang: 'sql', code: 'SELECT c.oid, c.relname, c.relpages, c.reltuples\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE n.nspname = \'public\' AND c.relname = \'Product\';\n--   oid  | relname | relpages | reltuples\n-- -------+---------+----------+-----------\n--  16412 | Product |      894 |    121430' }
+    ]
+  },
+
+  {
+    id: 'pg-planner',
+    chapter: 20,
+    title: 'The planner: cost-based, not rule-based',
+    node: 'planner',
+    mode: 'remote',
+    quiz: {
+      q: 'A query returns 20 rows with LIMIT 20 but still takes 4 seconds. What is the most likely explanation?',
+      options: [
+        'LIMIT is applied by the client, so all rows crossed the network',
+        'The plan must fully materialize and sort (or aggregate) before it can know which 20 rows to return',
+        'LIMIT disables index usage'
+      ],
+      answer: 1,
+      explain: 'LIMIT can short-circuit only if rows arrive in the required order already — typically from an index scan matching the ORDER BY. If the plan needs a Sort, a HashAggregate, or a hash join build, it must consume the entire input first; LIMIT then discards nearly all of that work. Matching your index to your ORDER BY is what turns a 4-second query into a 0.2ms one.'
+    },
+    explain: {
+      what: 'The planner enumerates candidate plans and prices each one using statistics from pg_statistic and the cost constants (seq_page_cost 1.0, random_page_cost 4.0, cpu_tuple_cost 0.01). Here it compares a Seq Scan on 894 pages plus a Sort against an Index Scan on the composite index that already yields rows in id order. The index scan wins decisively because ORDER BY id ASC LIMIT 20 lets it stop after 20 rows.',
+      why: 'Cost-based planning is why the same SQL can pick different plans as data grows: at 100 rows a seq scan is cheapest; at 121,430 rows it is not. The planner re-decides every time.',
+      component: 'Planner/optimizer (backend/optimizer/plan/planner.c)',
+      layer: 'Database · query pipeline stage 2',
+      abstraction: 'Search the plan space, minimize estimated cost',
+      protocol: '—',
+      misconception: '"The planner uses my indexes if they exist." It uses them if it BELIEVES they are cheaper. Stale statistics (no ANALYZE after a bulk load) routinely make it choose a seq scan over a perfect index.',
+      analogy: 'A navigation app comparing routes by predicted travel time — not by which road you like — and re-routing when traffic data changes.',
+      command: 'EXPLAIN (ANALYZE, BUFFERS, COSTS) SELECT * FROM "Product" WHERE published ORDER BY id LIMIT 20;',
+      production: 'random_page_cost=4.0 is a spinning-disk default. On NVMe, 1.1 is the standard tuning and it flips many seq scans into index scans. Also raise default_statistics_target for skewed columns.'
+    },
+    code: [
+      { title: 'EXPLAIN (ANALYZE, BUFFERS)', lang: 'sql', code: 'Limit  (cost=0.42..2.31 rows=20 width=68)\n       (actual time=0.019..0.104 rows=20 loops=1)\n  Buffers: shared hit=6 read=1\n  ->  Index Scan using "Product_published_id_idx" on "Product"\n        (cost=0.42..11482.60 rows=121430 width=68)\n        (actual time=0.017..0.095 rows=20 loops=1)\n        Index Cond: (published = true)\n        Buffers: shared hit=6 read=1\nPlanning Time: 0.183 ms\nExecution Time: 0.139 ms' },
+      { title: 'The plan it rejected', lang: 'sql', code: '-- SET enable_indexscan = off;  → what a seq scan would cost\nLimit  (cost=13884.21..13884.26 rows=20 width=68)\n  ->  Sort  (cost=13884.21..14187.79 rows=121430 width=68)\n        Sort Key: id\n        ->  Seq Scan on "Product"  (cost=0.00..10653.30 rows=121430)\n              Filter: published\n-- 13884 vs 2.31: not close.' }
+    ]
+  },
+
+  {
+    id: 'pg-executor',
+    chapter: 20,
+    title: 'The executor pulls tuples through the plan tree',
+    node: 'executor',
+    mode: 'remote',
+    explain: {
+      what: 'ExecutorRun walks the plan tree as a demand-driven pipeline (the Volcano model): the Limit node asks its child for a tuple, the Index Scan node produces one, and this repeats. Nothing is materialised up front. After the twentieth tuple the Limit node simply stops asking, and the index scan is abandoned mid-descent with 121,410 rows never touched.',
+      why: 'Pull-based iteration is why LIMIT can be nearly free on a well-indexed query — the executor never does work nobody asked for.',
+      component: 'Executor (backend/executor/execMain.c, ExecProcNode)',
+      layer: 'Database · query pipeline stage 3',
+      abstraction: 'Iterator pipeline over plan nodes',
+      protocol: '—',
+      misconception: '"The database computes the whole result then trims it." Only blocking nodes (Sort, Hash, Aggregate) do that. Streaming nodes hand tuples up one at a time and can stop early.',
+      analogy: 'A bucket brigade that stops the moment the fire is out — nobody keeps hauling water for the buckets that were never needed.',
+      command: 'EXPLAIN (ANALYZE, VERBOSE) ...   -- "loops=1, rows=20" reveals early exit',
+      production: 'A plan node with actual rows wildly different from estimated rows is your smoking gun for a bad plan — the ratio is what auto_explain and pganalyze alert on.'
+    },
+    code: [
+      { title: 'Executor call chain', lang: 'c', code: 'exec_execute_message()\n  → ExecutorRun()\n      → ExecutePlan()\n          → ExecProcNode(LimitState)\n              → ExecProcNode(IndexScanState)\n                  → index_getnext_slot()\n                      → btgettuple()          /* B-tree AM */\n                          → ReadBuffer()      /* next step */' }
+    ]
+  },
+
+  {
+    id: 'pg-btree-descent',
+    chapter: 20,
+    title: 'Descending the B-tree',
+    node: 'executor',
+    mode: 'remote',
+    explain: {
+      what: 'The index is a B-tree of 8KB pages, three levels deep for 121K rows: root → internal → leaf. The scan reads the root, binary-searches its keys for published=true, follows a downlink to an internal page, searches again, and lands on a leaf page whose entries are (key, ctid) pairs — the ctid being the physical (block, offset) address of the heap tuple. Leaf pages are chained left-to-right, so the ordered scan just walks the chain.',
+      why: 'Three page reads to locate any row among a hundred thousand — and a fourth to fetch it — is the entire reason indexes exist. Depth grows logarithmically: a billion rows is still only about five levels.',
+      component: 'nbtree access method (backend/access/nbtree/nbtsearch.c)',
+      layer: 'Database · storage access method',
+      abstraction: 'Ordered, balanced, block-oriented search structure',
+      protocol: 'Lehman-Yao B-link tree (concurrent, lock-coupled)',
+      misconception: '"An index scan reads only the index." Unless the query is index-only AND the visibility map says the pages are all-visible, every match also costs a random heap read to check MVCC visibility.',
+      analogy: 'A library card catalogue: three drawers of narrowing alphabetical dividers get you to a card, and the card gives you the shelf coordinates — then you still have to walk to the shelf.',
+      command: 'CREATE EXTENSION pageinspect; SELECT * FROM bt_metap(\'"Product_published_id_idx"\');',
+      production: 'Watch index bloat with pgstattuple: churned tables leave leaf pages half-empty, which quietly doubles the pages you must read. REINDEX CONCURRENTLY is the online fix.'
+    },
+    code: [
+      { title: 'B-tree shape', lang: 'sql', code: "SELECT * FROM bt_metap('\"Product_published_id_idx\"');\n--  magic  | version | root | level | fastroot | fastlevel\n-- --------+---------+------+-------+----------+-----------\n--  340322 |       4 |  412 |     2 |      412 |         2\n-- level 2 = root + internal + leaf  →  3 page reads to a leaf" }
+    ]
+  },
+
+  {
+    id: 'pg-sharedbuf-hit',
+    chapter: 20,
+    title: 'shared_buffers: six pages HIT',
+    node: 'sharedbuf',
+    mode: 'remote',
+    effects: ['flash'],
+    state: { mem: 'kernel' },
+    explain: {
+      what: 'Every page request goes through ReadBuffer, which hashes the (relfilenode, blocknum) tag into the shared buffer table living in Postgres’ shared memory segment. Six of our seven pages — the B-tree root, internals, and hot heap pages — are already resident: a hash probe, a pin, a usage-count bump, and the page pointer is returned in nanoseconds. That is what "Buffers: shared hit=6" in the EXPLAIN meant.',
+      why: 'shared_buffers is Postgres’ own page cache, sized typically at 25% of RAM. Hitting it avoids not just disk but the syscall to the OS cache too.',
+      component: 'Buffer manager (backend/storage/buffer/bufmgr.c)',
+      layer: 'Database · shared memory cache',
+      abstraction: 'Pinned, reference-counted page cache with clock-sweep eviction',
+      protocol: '—',
+      misconception: '"shared_buffers should be as big as possible." Postgres deliberately relies on the OS page cache as a second tier; oversizing shared_buffers duplicates pages in both caches and lengthens checkpoint write storms.',
+      analogy: 'Books already on your desk versus books in the building’s stacks: the desk is instant, but it only has room for so many.',
+      command: 'CREATE EXTENSION pg_buffercache;\nSELECT c.relname, count(*) AS buffers\nFROM pg_buffercache b JOIN pg_class c ON b.relfilenode = pg_relation_filenode(c.oid)\nGROUP BY 1 ORDER BY 2 DESC LIMIT 10;',
+      production: 'Cache hit ratio below ~99% on an OLTP workload means your working set exceeds shared_buffers. Compute it from pg_stat_database: blks_hit / (blks_hit + blks_read).'
+    },
+    code: [
+      { title: 'Buffer lookup', lang: 'c', code: 'ReadBuffer(rel, blockNum)\n  → BufTableLookup(&tag, hashcode)     /* shared hash table */\n      hit  → PinBuffer() → usage_count++ → return\n      miss → BufferAlloc() → clock sweep for a victim → smgrread()' }
+    ]
+  },
+
+  {
+    id: 'pg-buffer-miss',
+    chapter: 20,
+    title: 'One page MISSES — down to the OS page cache',
+    node: 'memmap',
+    mode: 'remote',
+    effects: ['queue+'],
+    state: { mem: 'copy' },
+    explain: {
+      what: 'The seventh page — a heap block holding some of our twenty rows — is not in shared_buffers. The buffer manager runs the clock sweep to evict a victim (decrementing usage counts until it finds a zero), then calls smgrread → pread(fd, buf, 8192, offset) against the relation file. That pread enters the kernel and lands in the OS page cache, which very likely already holds the block: a memcpy from kernel page cache into the shared buffer, no disk involved.',
+      why: 'Two cache tiers means a shared_buffers miss is usually still micro-seconds, not milliseconds. This is exactly why Postgres does not try to own all of RAM.',
+      component: 'smgr → pread(2) → kernel page cache (mm/filemap.c)',
+      layer: 'Database ↔ kernel · storage I/O',
+      abstraction: 'Two-level caching: process cache over OS cache',
+      protocol: '—',
+      misconception: '"shared hit=0 means we read from disk." It means we left shared_buffers. The read may be served entirely from the OS page cache at RAM speed — track_io_timing is what distinguishes them.',
+      analogy: 'Not on your desk, so you walk to the departmental shelf down the hall — still much faster than ordering from the archive warehouse.',
+      command: 'SET track_io_timing = on;  -- then EXPLAIN (ANALYZE, BUFFERS) reports I/O Timings',
+      production: 'Do not fear a warm page cache: after a Postgres restart the first minutes are slow because BOTH caches are cold. pg_prewarm can preload critical relations during a maintenance window.'
+    },
+    code: [
+      { title: 'The syscall', lang: 'c', code: 'pread64(fd=42 /* base/16384/16412 */,\n        buf=0x7f2a1c003000,\n        count=8192,\n        offset=6127616)          /* block 748 * 8192 */\n  = 8192                        /* page-cache hit: ~2us */' }
+    ]
+  },
+
+  {
+    id: 'pg-disk-read',
+    chapter: 20,
+    title: 'When even the page cache misses: actual disk',
+    node: 'disk',
+    mode: 'remote',
+    effects: ['queue-', 'irq'],
+    explain: {
+      what: 'If the OS page cache also lacks the block, the kernel submits a block-layer request: the filesystem maps file offset to LBA, the request enters the mq-deadline queue, the NVMe driver rings a submission-queue doorbell, and the device DMAs 8192 bytes into the page. On completion it raises an interrupt, the page is marked uptodate, and pread returns. NVMe: ~80-100 microseconds. Spinning rust: 5-10 milliseconds — fifty times slower.',
+      why: 'This is the only step in the entire chapter that touches physical media, and on a healthy OLTP system it is the rarest. Database performance work is largely the art of avoiding this step.',
+      component: 'Block layer + NVMe driver (block/blk-mq.c, drivers/nvme/)',
+      layer: 'Database host · kernel block I/O',
+      abstraction: 'File offset → LBA → device queue → DMA',
+      protocol: 'NVMe over PCIe',
+      misconception: '"SSDs made I/O free." An NVMe read is still ~100us — roughly 300,000 CPU cycles. A query doing 10,000 random reads is a full second of pure waiting no matter how fast your CPU is.',
+      analogy: 'Requesting a box from the offsite archive. Fast courier or slow courier, it is still a different building.',
+      command: 'sudo biolatency-bpfcc 5 1     # BCC: block I/O latency histogram',
+      production: 'effective_io_concurrency (200+ on NVMe) enables prefetch for bitmap heap scans. Watch pg_stat_database.blk_read_time — if it dominates total query time, you are I/O bound and more CPU will not help.'
+    },
+    code: [
+      { title: 'I/O timings in EXPLAIN', lang: 'sql', code: 'Buffers: shared hit=6 read=1\nI/O Timings: shared read=0.094 ms\n-- 0.094ms for one 8KB page = page cache, not disk.\n-- A true NVMe read shows ~0.1ms; SATA SSD ~0.3ms; HDD ~8ms.' }
+    ]
+  },
+
+  {
+    id: 'pg-mvcc',
+    chapter: 20,
+    title: 'MVCC: is this row version visible to ME?',
+    node: 'postgres',
+    mode: 'remote',
+    explain: {
+      what: 'Every heap tuple carries xmin (the transaction that created it) and xmax (the transaction that deleted it, if any). Our statement took a snapshot at start: a list of in-progress transaction ids plus xmax boundary. For each candidate row HeapTupleSatisfiesMVCC asks: was xmin committed before my snapshot, and is xmax either absent or not-yet-committed? Only then is the row mine to see. Rows updated by a still-open transaction are silently skipped — the previous version is returned instead.',
+      why: 'This is how readers never block writers and writers never block readers. Nobody takes a shared lock on a row just to read it, which is the single biggest reason Postgres handles mixed workloads gracefully.',
+      component: 'MVCC visibility (backend/access/heap/heapam_visibility.c)',
+      layer: 'Database · transaction isolation',
+      abstraction: 'Multi-version concurrency control over snapshots',
+      protocol: 'Snapshot isolation (READ COMMITTED default)',
+      misconception: '"DELETE frees space immediately." It only sets xmax. The dead tuple sits there until VACUUM proves no snapshot can still see it — which is why a table can be 90% dead rows and grow while you delete from it.',
+      analogy: 'A photograph of the ledger taken when your query started. Later edits happen on the real ledger; you keep reading your photo, consistently.',
+      command: 'SELECT xmin, xmax, ctid, id FROM "Product" LIMIT 5;',
+      production: 'Long-running transactions are the silent killer: they hold back the xmin horizon so VACUUM cannot reclaim anything cluster-wide. Alarm on max(now() - xact_start) and set idle_in_transaction_session_timeout.'
+    },
+    code: [
+      { title: 'Tuple headers', lang: 'sql', code: 'SELECT ctid, xmin, xmax, id, name FROM "Product"\nWHERE published ORDER BY id LIMIT 3;\n--   ctid   |  xmin  | xmax | id |    name\n-- ---------+--------+------+----+-------------\n--  (0,1)   | 918233 |    0 |  1 | Wool Runner\n--  (0,2)   | 918233 |    0 |  2 | Linen Tote\n--  (748,4) | 991402 |    0 |  3 | Cedar Board\n-- xmax = 0 → alive; our snapshot sees all three.' }
+    ]
+  },
+
+  {
+    id: 'pg-wal-note',
+    chapter: 20,
+    title: 'No WAL for a read (almost)',
+    node: 'wal',
+    mode: 'remote',
+    explain: {
+      what: 'A SELECT writes no WAL: nothing durable changed. But it may still DIRTY a page — the first reader of a tuple whose transaction has since committed sets a hint bit (HEAP_XMIN_COMMITTED) so later readers skip the commit-log lookup. That is a page modification, so with wal_log_hints or checksums enabled it emits a full-page image. Which is the honest answer to "why is my read-only query writing?"',
+      why: 'WAL is the durability contract: write-ahead means the log record hits stable storage before the data page does, so a crash can be replayed. Reads normally sit entirely outside that contract.',
+      component: 'WAL writer + hint bits (backend/access/transam/xlog.c)',
+      layer: 'Database · durability layer',
+      abstraction: 'Write-ahead logging',
+      protocol: 'ARIES-style physical logging',
+      misconception: '"SELECTs never write." Hint-bit setting after a bulk load makes the first scan of fresh data measurably slower and dirties pages — a classic "why is the first query after import slow" mystery.',
+      analogy: 'A librarian who pencils "verified" in a book’s margin while reading it — not a change to the story, but the page is now different from the archive copy.',
+      command: 'SELECT pg_current_wal_lsn(), pg_walfile_name(pg_current_wal_lsn());',
+      production: 'WAL volume drives replication lag and backup size. synchronous_commit=off trades a few hundred ms of durability for a huge write-throughput win — legitimate for analytics, negligent for payments.'
+    }
+  },
+
+  {
+    id: 'pg-datarow',
+    chapter: 20,
+    title: 'Twenty rows become twenty DataRow messages',
+    node: 'executor',
+    mode: 'remote',
+    packet: {
+      label: 'RowDescription + 20 × DataRow + CommandComplete',
+      layers: ['tcp', 'payload'],
+      fields: {
+        payload: { 'T (RowDescription)': '5 fields: id int4, name text, priceCents int4, published bool, createdAt timestamptz', 'D (DataRow) ×20': 'length-prefixed text-format values', 'C (CommandComplete)': 'SELECT 20', 'Z (ReadyForQuery)': 'status = I (idle)' }
+      }
+    },
+    explain: {
+      what: 'Each qualifying tuple is converted from its on-disk binary layout into wire format by the type output functions (int4out, textout, timestamptzout) and framed as a DataRow message: a byte count per column, then the bytes. One RowDescription precedes them all, describing the columns and their type OIDs. CommandComplete carries the tag SELECT 20, and ReadyForQuery signals the backend is idle again.',
+      why: 'Row-at-a-time streaming means the client can start processing before the server finishes — and it is why cursors can page through billions of rows without the server buffering them.',
+      component: 'printtup destination receiver (backend/access/common/printtup.c)',
+      layer: 'Database · result serialization',
+      abstraction: 'Tuple → typed wire message',
+      protocol: 'PostgreSQL FE/BE v3 (DataRow)',
+      misconception: '"The database sends binary." By default it sends TEXT format — 1234 travels as the four characters "1234". Binary format exists but drivers must opt in per parameter.',
+      analogy: 'Reading a ledger aloud line by line down the phone, having first announced the column headings.',
+      command: 'psql -c "\\\\timing" -c "SELECT * FROM \\"Product\\" LIMIT 20;"',
+      production: 'Wide SELECT * results dominate wire time on large result sets. Selecting only needed columns cuts both serialization CPU and network bytes — the cheapest optimization nobody makes.'
+    },
+    code: [
+      { title: 'DataRow on the wire', lang: 'c', code: "'T' len=... nfields=5\n     \"id\" tableoid=16412 attnum=1 typoid=23 (int4) fmt=0\n     \"name\" ... typoid=25 (text) fmt=0\n'D' len=0x00000039 ncols=5\n     [4] \"1\"  [11] \"Wool Runner\"  [5] \"12900\"  [1] \"t\"  [29] \"2026-01-14 09:12:44.181+00\"\n... ×20 ...\n'C' len=0x0000000D \"SELECT 20\\0\"\n'Z' len=0x00000005 'I'" }
+    ]
+  },
+
+  {
+    id: 'pg-result-send',
+    chapter: 20,
+    title: 'The result heads back over the socket',
+    node: 'postgres',
+    mode: 'remote',
+    from: 'executor',
+    effects: ['flash'],
+    packet: {
+      label: '~3.4 KB of result rows → 10.0.0.9:41022',
+      layers: ['eth', 'ip', 'tcp', 'payload'],
+      fields: {
+        ip: { 'Src': '10.0.0.12', 'Dst': '10.0.0.9', 'TTL': '64', 'Proto': '6 (TCP)' },
+        tcp: { 'Src Port': '5432', 'Dst Port': '41022', 'Flags': 'PSH, ACK' },
+        payload: { 'Bytes': '3412', 'Messages': 'T, D×20, C, Z' }
+      }
+    },
+    explain: {
+      what: 'The backend flushes its output buffer with a send() on the connection socket, then loops back to waiting for the next message. Total elapsed inside Postgres: about 0.4 milliseconds — 0.18ms planning, 0.14ms executing, the rest serialization. The bytes now retrace the datacenter path, kernel egress on the DB host, kernel ingress on the app host, into the pooled socket the query engine is waiting on.',
+      why: 'Naming the number matters: sub-millisecond database time inside a ~250ms user-visible request tells you where NOT to optimize.',
+      component: 'Backend socket flush (backend/libpq/pqcomm.c internal_flush)',
+      layer: 'Database host · L4 egress',
+      abstraction: 'Result set → TCP byte stream',
+      protocol: 'PostgreSQL FE/BE v3 over TCP',
+      misconception: '"The query took 0.4ms so the endpoint is fast." Add pool wait, two network traversals, hydration, serialization, and proxy hops — the database is often the smallest slice of the pie chart.',
+      analogy: 'The kitchen finishing in forty seconds; the food still has to cross the dining room, and the diner still has to be found.',
+      command: 'psql -c "SELECT query, calls, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 5;"',
+      production: 'pg_stat_statements is non-negotiable in production: it is the only view that tells you which statement text — normalized — is burning your database, ranked by total time rather than by whoever complained loudest.'
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 21 — The Response: database → edge
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'prisma-hydrate',
+    chapter: 21,
+    title: 'Prisma hydrates rows into JavaScript objects',
+    node: 'prisma',
+    mode: 'remote',
+    state: { mem: 'user' },
+    explain: {
+      what: 'The query engine reads the DataRow messages and converts each wire value using the column type OIDs from RowDescription: int4 → number, text → string, bool → boolean, timestamptz → a JS Date. Twenty plain objects are allocated in the V8 heap with the exact shape the generated TypeScript type promised. Prisma also maps snake_case columns back to camelCase fields if the schema said so.',
+      why: 'Type mapping is where ORMs earn their keep and where they betray you: JavaScript numbers are IEEE-754 doubles, so BIGINT and NUMERIC cannot round-trip safely — Prisma returns BigInt and Decimal wrappers for exactly that reason.',
+      component: 'Prisma query engine result deserialization',
+      layer: 'Server userspace · data mapping',
+      abstraction: 'Wire rows → typed domain objects',
+      protocol: 'PostgreSQL type OIDs → JS types',
+      misconception: '"The database returns objects." It returns bytes. Every object you hold is an allocation your process made — which is why SELECT-ing a million rows OOMs the app, not the database.',
+      analogy: 'Unpacking a shipping container: the goods were shrink-wrapped flat for transport and now get assembled into usable furniture.',
+      command: 'node --expose-gc -e "console.log(process.memoryUsage())"',
+      production: 'Cap result sizes at the query layer, never in application code. A missing take on a table that grew to 10M rows is the single most common Node OOM in production.'
+    },
+    code: [
+      { title: 'The hydrated array', lang: 'js', code: "[\n  { id: 1, name: 'Wool Runner', priceCents: 12900,\n    published: true, createdAt: 2026-01-14T09:12:44.181Z },\n  { id: 2, name: 'Linen Tote',  priceCents: 6400, ... },\n  // ... 18 more\n]\n// typeof rows[0].createdAt  → 'object' (Date)\n// typeof rows[0].priceCents → 'number'" }
+    ]
+  },
+
+  {
+    id: 'pool-release',
+    chapter: 21,
+    title: 'Connection returned to the pool; the await resumes',
+    node: 'pool',
+    mode: 'remote',
+    effects: ['pool-', 'ctx'],
+    explain: {
+      what: 'The engine hands the connection back to the pool — the semaphore slot is freed and any request queued behind it is woken immediately. The Promise created back in ProductsService resolves, its continuation is scheduled as a microtask, and the event loop resumes the suspended async function exactly where it stopped. The service returns the array to the controller; the controller returns it to Nest.',
+      why: 'Prompt release is what makes a pool of 17 serve thousands of requests per second: hold time, not pool size, is the resource that matters.',
+      component: 'Pool release + V8 microtask queue',
+      layer: 'Server userspace · concurrency',
+      abstraction: 'Resource lease ends; continuation resumes',
+      protocol: '—',
+      misconception: '"await resumes immediately when the data arrives." It resumes when the event loop reaches the microtask checkpoint — if some synchronous handler is hogging the thread, your resolved Promise waits in line.',
+      analogy: 'Returning the rental car keys the moment you park, not at the end of your holiday — the next customer drives off immediately.',
+      command: 'node --trace-event-categories node.async_hooks dist/main.js',
+      production: 'The killer anti-pattern is holding a pooled connection across an unrelated await (an HTTP call inside a transaction). Keep transactions short and never do network I/O inside one.'
+    },
+    code: [
+      { title: 'What resumes', lang: 'js', code: "// ProductsService.findAll — suspended since chapter 19\nconst rows = await this.prisma.product.findMany({ ... });\n//            ^ execution resumes HERE, on the same call stack shape\nreturn rows;   // → ProductsController.findAll → Nest response pipeline" }
+    ]
+  },
+
+  {
+    id: 'nest-serialize',
+    chapter: 21,
+    title: 'Interceptors, then JSON.stringify',
+    node: 'service',
+    mode: 'remote',
+    from: 'pool',
+    explain: {
+      what: 'Nest runs the response half of the lifecycle: interceptors wrap the handler result (ClassSerializerInterceptor strips @Exclude fields such as internal cost or supplier ids, applies @Transform, and turns Dates into ISO-8601 strings), then the framework calls res.json(). Express sets Content-Type: application/json; charset=utf-8 and runs JSON.stringify over the array, producing roughly 14 kilobytes of UTF-8 text.',
+      why: 'Serialization is the last gate before data leaves your trust boundary — the difference between an API and a data leak is usually one @Exclude decorator.',
+      component: 'ClassSerializerInterceptor + Express res.json',
+      layer: 'Server userspace · L7 serialization',
+      abstraction: 'Domain objects → transport representation',
+      protocol: 'JSON (RFC 8259), UTF-8',
+      misconception: '"JSON.stringify is cheap." It is synchronous and O(size): stringifying a 50MB payload blocks the event loop for hundreds of milliseconds and stalls EVERY concurrent request on that process.',
+      analogy: 'A press officer editing the internal memo into a public statement — removing the parts that were never meant to leave the building.',
+      command: 'curl -s http://172.17.0.1:443/products?limit=20 | jq ". | length"',
+      production: 'For large payloads prefer streaming serializers or pagination over one giant stringify. And measure: response serialization frequently outweighs the query in flame graphs of "slow" endpoints.'
+    },
+    code: [
+      { title: 'Exclusions in the entity', lang: 'js', code: "export class ProductEntity {\n  id: number;\n  name: string;\n  priceCents: number;\n\n  @Exclude()  supplierCostCents: number;   // never leaves the building\n  @Exclude()  internalNotes: string;\n\n  @Transform(({ value }) => value.toISOString())\n  createdAt: Date;\n}\n\n// main.ts\napp.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));" },
+      { title: 'The bytes produced', lang: 'js', code: '[{"id":1,"name":"Wool Runner","priceCents":12900,"published":true,\n  "createdAt":"2026-01-14T09:12:44.181Z"}, ... ]\n// 14,208 bytes, Content-Type: application/json; charset=utf-8' }
+    ],
+    prod: {
+      title: 'Serializing twenty tours',
+      explain: { production: 'Island Tours excludes internal margin fields the same way and ships ~11KB of JSON. Caddy will gzip it on the way out (Nest can skip compression entirely when the proxy owns it).' },
+      code: [
+        { title: 'The response body', lang: 'js', code: '[{"id":1,"title":"Sunset Catamaran","island":"Maui","seats":18,\n  "priceCents":8900}, ... 19 more ]' }
+      ]
+    }
+  },
+
+  {
+    id: 'nest-write-syscall',
+    chapter: 21,
+    title: 'write() — and the whole egress path once more',
+    node: 'appserver',
+    mode: 'remote',
+    effects: ['flash', 'zoomout'],
+    state: { mode: 'kernel', mem: 'copy' },
+    packet: {
+      label: 'HTTP/1.1 200 OK + 14,208 bytes',
+      layers: ['ip', 'tcp', 'http'],
+      fields: {
+        ip: { 'Src': '172.17.0.2', 'Dst': '172.17.0.1', 'TTL': '64' },
+        tcp: { 'Src Port': '3000', 'Dst Port': '52814', 'Flags': 'PSH, ACK' },
+        http: { 'Status': '200 OK', 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': '14208', 'X-Powered-By': 'Express', 'ETag': 'W/"3780-lFj9Kk1L"' }
+      }
+    },
+    explain: {
+      what: 'Node writes the status line, headers, and body to fd 18. Ring 3 → ring 0, copy_from_user into the socket send buffer, tcp_sendmsg segments 14,208 bytes into ten MSS-sized packets, and the container’s network stack pushes them out eth0. Yes: the entire egress path, again, compressed into one panel. You have earned the montage twice over.',
+      why: 'Ten segments means the receiver’s window and the congestion window actually matter now — this is the first time in the story we are sending enough data for TCP flow control to have an opinion.',
+      component: 'write(2) → tcp_sendmsg → veth xmit',
+      layer: 'Container kernel · L4 egress',
+      abstraction: 'Response bytes → segmented TCP stream',
+      protocol: 'HTTP/1.1 over TCP',
+      misconception: '"One write() equals one packet." The kernel decides segmentation, and with TCP Segmentation Offload the NIC may do it — a single 14KB write can leave as one giant skb that hardware splits on the way out.',
+      analogy: 'Handing a 14-page report to the mailroom: they choose how many envelopes it takes, not you.',
+      command: 'sudo strace -e trace=write -p "$(pgrep -f "node dist/main")" 2>&1 | head',
+      production: 'Watch for EAGAIN on write with slow clients — Node buffers unwritten bytes in userland, and a few thousand stalled downloads become gigabytes of heap. Backpressure (stream.write returning false) exists for exactly this.'
+    }
+  },
+
+  {
+    id: 'docker-return-dnat',
+    chapter: 21,
+    title: 'conntrack un-NATs the reply',
+    node: 'dnat',
+    mode: 'remote',
+    when: { deploy: 'docker' },
+    packet: {
+      label: 'Reverse NAT: 172.17.0.2:3000 → :443',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src (before)': '172.17.0.2', 'Src (after)': '172.17.0.1', 'Dst': '172.17.0.1' },
+        tcp: { 'Src Port (before)': '3000', 'Src Port (after)': '443', 'Dst Port': '52814', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'The response crosses eth0 → veth → docker0 and hits the host stack, where conntrack recognises it as the REPLY direction of the flow created back in chapter 17. No iptables rule is consulted: the stored tuple says this flow was DNATed, so the kernel rewrites the source back to 172.17.0.1:443 — exactly the address nginx connected to. As far as nginx is concerned, the published port answered.',
+      why: 'Stateful NAT is what makes port publishing transparent. Without conntrack the reply would arrive from an address the proxy never dialed and its TCP stack would answer with an RST.',
+      component: 'nf_conntrack reply-direction NAT (net/netfilter/nf_nat_core.c)',
+      layer: 'Server kernel · L3/L4',
+      abstraction: 'Flow state replaces per-packet policy',
+      protocol: 'Netfilter connection tracking',
+      misconception: '"NAT breaks connections when the table is full." Worse — it silently DROPS new flows and logs nf_conntrack: table full, dropping packet. Under load this looks like random connection failures with no application errors at all.',
+      analogy: 'The forwarding clerk remembering that letters from room 3000 must be re-stamped as coming from the front desk, so the sender never learns the room number.',
+      command: 'sudo conntrack -L | grep 3000\nsysctl net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_max',
+      production: 'On busy hosts raise nf_conntrack_max and hashsize, and graph the count/max ratio. Container hosts hit this ceiling long before they run out of CPU.'
+    },
+    code: [
+      { title: 'The tracked flow, both directions', lang: 'bash', code: 'sudo conntrack -L -p tcp --dport 3000\ntcp  6 431996 ESTABLISHED\n  src=172.17.0.1 dst=172.17.0.1 sport=52814 dport=443     <- original\n  src=172.17.0.2 dst=172.17.0.1 sport=3000  dport=52814   <- reply (rewritten)\n  [ASSURED] mark=0 use=1' }
+    ]
+  },
+
+  {
+    id: 'proxy-buffer-forward',
+    chapter: 21,
+    title: 'nginx buffers the upstream response',
+    node: 'proxy',
+    mode: 'remote',
+    explain: {
+      what: 'nginx reads the upstream response into its proxy buffers (default 8 buffers of 4KB plus one 4KB header buffer — our 14KB fits comfortably in memory; anything larger spills to a temp file on disk). It rewrites hop-by-hop headers, drops X-Powered-By if configured, adds Server: nginx, applies gzip if the client’s Accept-Encoding allows it, and only then starts writing to the downstream connection.',
+      why: 'Buffering frees the upstream connection as fast as possible so the app can serve the next request while nginx patiently feeds a slow mobile client. This is the whole reason a reverse proxy sits in front of an app server.',
+      component: 'ngx_http_proxy_module (proxy_buffering)',
+      layer: 'Origin server · L7 proxy',
+      abstraction: 'Decoupling fast upstream from slow downstream',
+      protocol: 'HTTP/1.1',
+      misconception: '"Turning off proxy_buffering makes things faster." It makes the FIRST byte faster and everything else worse: your Node process is then pinned to the slowest client on the network. Disable it only for SSE and streaming endpoints.',
+      analogy: 'A restaurant runner who takes the whole plated order from the pass immediately, freeing the chef, then walks it to the table at the diner’s pace.',
+      command: 'nginx -T | grep -E "proxy_buffer|gzip"',
+      production: 'Alarm on "an upstream response is buffered to a temporary file" in the error log — it means your buffers are undersized for real payloads and you are doing disk I/O per request.'
+    },
+    code: [
+      { title: 'Buffering + compression', lang: 'bash', code: 'proxy_buffering on;\nproxy_buffer_size 4k;        # response headers\nproxy_buffers 8 4k;          # 32k of body before spilling to disk\nproxy_busy_buffers_size 8k;\n\ngzip on;\ngzip_types application/json;\ngzip_min_length 1024;        # 14KB JSON → ~2.4KB on the wire' }
+    ]
+  },
+
+  {
+    id: 'origin-to-cf-tls',
+    chapter: 21,
+    title: 'Encrypted back to Cloudflare over the origin pull connection',
+    node: 'originpull',
+    mode: 'net',
+    packet: {
+      label: 'TLS Application Data ← origin',
+      layers: ['ip', 'tcp', 'tls', 'http'],
+      fields: {
+        ip: { 'Src': '198.51.100.10', 'Dst': '104.18.32.7', 'TTL': '64' },
+        tcp: { 'Src Port': '443', 'Dst Port': '39114', 'Flags': 'PSH, ACK' },
+        tls: { 'Record': 'application_data', 'Version': 'TLS 1.3', 'Cipher': 'TLS_AES_128_GCM_SHA256', 'Length': '2489' },
+        http: { 'Status': '200', 'Content-Encoding': 'gzip', 'Content-Type': 'application/json' }
+      }
+    },
+    explain: {
+      what: 'nginx encrypts the (now gzipped, ~2.4KB) response into TLS records on the long-lived origin-pull connection Cloudflare opened in chapter 16 — a different TLS session entirely from the browser’s, with different keys. The record travels back over the public internet to the edge PoP that made the request.',
+      why: 'Two independent TLS sessions is the architecture of every reverse proxy CDN: end-to-end encryption in the sense that no hop is plaintext, but explicitly NOT end-to-end in the sense that Cloudflare sees your data.',
+      component: 'Origin pull connection (Cloudflare ↔ origin, Full Strict mode)',
+      layer: 'Internet · L5/L6',
+      abstraction: 'Second TLS leg of a proxied request',
+      protocol: 'TLS 1.3 (RFC 8446)',
+      misconception: '"Cloudflare Flexible mode is still HTTPS." Flexible encrypts only browser→edge and speaks plaintext HTTP to your origin. Anyone on the origin path reads everything. Full (Strict) with a validated origin certificate is the only honest setting.',
+      analogy: 'A translator relaying a private conversation: both halves are behind closed doors, but the translator heard every word.',
+      command: 'curl -sv --resolve api.shop.dev:443:198.51.100.10 https://api.shop.dev/products 2>&1 | grep -i "SSL connection"',
+      production: 'Use Authenticated Origin Pulls (client certificates) so your origin only accepts connections from Cloudflare — otherwise anyone who finds 198.51.100.10 bypasses your WAF entirely.'
+    }
+  },
+
+  {
+    id: 'cf-edge-response',
+    chapter: 21,
+    title: 'The edge stamps its headers and decides not to cache',
+    node: 'cfcache',
+    mode: 'net',
+    packet: {
+      label: '200 OK + CF headers',
+      layers: ['tls', 'http'],
+      fields: {
+        http: { ':status': '200', 'content-type': 'application/json; charset=utf-8', 'content-encoding': 'gzip', 'cache-control': 'private, no-store', 'cf-cache-status': 'DYNAMIC', 'cf-ray': '8f3a1c9d4e2b7a10-AMS', 'server': 'cloudflare', 'age': '0' }
+      }
+    },
+    explain: {
+      what: 'The edge receives the 200, checks its cache rules, and declines to store it: the origin sent Cache-Control: private, no-store, and /products is not in a cache-everything page rule. It labels the response cf-cache-status: DYNAMIC (fetched from origin, not cacheable), attaches a cf-ray id that ties this request to a specific PoP and datacenter (AMS = Amsterdam) for support tickets, and prepares to relay it to the browser.',
+      why: 'The cf-cache-status header is the single most useful debugging field in a CDN: HIT, MISS, EXPIRED, BYPASS, DYNAMIC each tell a completely different story about why your origin is or is not being hammered.',
+      component: 'Cloudflare edge cache + response pipeline',
+      layer: 'Edge · L7',
+      abstraction: 'Cache admission decision at the boundary',
+      protocol: 'HTTP caching (RFC 9111)',
+      misconception: '"Cloudflare caches my API automatically." By default it caches only static extensions. API JSON is never cached unless you write a cache rule AND send cache-friendly headers — DYNAMIC means "I did not even try".',
+      analogy: 'A photocopier that only duplicates documents stamped "public"; everything marked private goes straight to the recipient and nothing stays behind.',
+      command: 'curl -sI https://api.shop.dev/products?limit=20 | grep -i "cf-\\|cache"',
+      production: 'For read-heavy APIs, Cache-Control: public, max-age=0, s-maxage=60 plus stale-while-revalidate lets the edge absorb the traffic while browsers stay fresh — often a 95% origin-load reduction for one header.'
+    },
+    code: [
+      { title: 'Response headers as the browser will see them', lang: 'bash', code: 'HTTP/2 200\ncontent-type: application/json; charset=utf-8\ncontent-encoding: gzip\ncache-control: private, no-store\ncf-cache-status: DYNAMIC\ncf-ray: 8f3a1c9d4e2b7a10-AMS\nserver: cloudflare\nalt-svc: h3=":443"; ma=86400' }
+    ]
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAPTER 22 — The Response: internet → home
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: 'cf-response-egress',
+    chapter: 22,
+    title: 'The edge answers on the original TLS session',
+    node: 'anycast',
+    mode: 'net',
+    packet: {
+      label: 'HTTP/2 DATA on stream 1',
+      layers: ['ip', 'tcp', 'tls', 'http'],
+      fields: {
+        ip: { 'Src': '104.18.32.7', 'Dst': '203.0.113.77', 'TTL': '64', 'Proto': '6 (TCP)' },
+        tcp: { 'Src Port': '443', 'Dst Port': '38112', 'Flags': 'PSH, ACK' },
+        tls: { 'Record': 'application_data', 'Keys': 'browser session (NOT the origin session)', 'Cipher': 'TLS_AES_128_GCM_SHA256' },
+        http: { 'Frame': 'HEADERS + DATA', 'Stream': '1', 'HPACK': 'dynamic table indexed' }
+      }
+    },
+    explain: {
+      what: 'The edge re-encrypts the response under the keys negotiated with the BROWSER back in chapter 13, frames it as an HTTP/2 HEADERS frame (HPACK-compressed) followed by DATA frames on stream 1, and writes it to the client connection. Different keys, different sequence numbers, different TCP connection than the origin leg — the edge is the seam.',
+      why: 'This is the moment the response stops being "server infrastructure" and becomes "the internet": from here it travels back across the same fabric it came, in reverse.',
+      component: 'Cloudflare edge proxy (HTTP/2 client connection)',
+      layer: 'Edge · L5-L7',
+      abstraction: 'Terminating proxy: two sessions, one logical request',
+      protocol: 'HTTP/2 (RFC 9113) over TLS 1.3',
+      misconception: '"The response follows the same path back." Internet routing is asymmetric by default — the return path is chosen independently by BGP and often traverses different networks entirely.',
+      analogy: 'A reply letter that leaves the same post office but may cross a different set of countries on its way home.',
+      command: 'curl -s -o /dev/null -w "%{http_version} %{time_starttransfer}\\n" https://api.shop.dev/products',
+      production: 'Time-to-first-byte at the edge versus at the origin (measurable with Cloudflare Logpush fields) separates "your app is slow" from "the network is slow" — two very different on-call runbooks.'
+    }
+  },
+
+  {
+    id: 'return-backbone',
+    chapter: 22,
+    title: 'Back across the backbone — fresh TTL, ~11 hops',
+    node: 'tier1a',
+    mode: 'net',
+    effects: ['zoomout'],
+    packet: {
+      label: 'Response segments crossing tier-1 transit',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src': '104.18.32.7', 'Dst': '203.0.113.77', 'TTL': '58 (was 64, 6 hops so far)', 'DSCP': '0x00' },
+        tcp: { 'Src Port': '443', 'Dst Port': '38112', 'Flags': 'ACK', 'Window': '65535 (scaled ×128)' }
+      }
+    },
+    explain: {
+      what: 'Each router does the same three things it did on the way out: longest-prefix match against the FIB for 203.0.113.0/24, decrement TTL, recompute the IPv4 header checksum, and forward out the chosen interface. The TTL counter is our odometer — it started at 64 at the edge and reads 58 here, so six routers have handled it. Every one of these lookups happens in hardware TCAM at line rate.',
+      why: 'The return trip is where you feel physics: roughly 5 microseconds per kilometre of fibre, and no amount of engineering beats the speed of light in glass.',
+      component: 'Tier-1 backbone routers (BGP FIB, hardware forwarding)',
+      layer: 'Internet · OSI L3',
+      abstraction: 'Hop-by-hop destination-based forwarding',
+      protocol: 'IPv4 (RFC 791) + BGP-4 (RFC 4271)',
+      misconception: '"Fewer hops means lower latency." Distance dominates: a 4-hop path across an ocean beats an 11-hop path across a metro area every time. Hops are not kilometres.',
+      analogy: 'A parcel moving between regional sorting hubs — each hub only needs to know the next hub, never the whole route.',
+      command: 'mtr -rwzbc 20 api.shop.dev',
+      production: 'Asymmetric routing makes one-way traceroutes lie. When latency is one-directional, you need probes from BOTH ends (RIPE Atlas, or a reverse traceroute from the provider) to find the sick link.'
+    }
+  },
+
+  {
+    id: 'return-isp',
+    chapter: 22,
+    title: 'Into the ISP core and out to the access network',
+    node: 'ispcore',
+    mode: 'net',
+    packet: {
+      label: 'Toward 203.0.113.77',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src': '104.18.32.7', 'Dst': '203.0.113.77', 'TTL': '54' },
+        tcp: { 'Src Port': '443', 'Dst Port': '38112', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'The ISP’s border router accepts the traffic (it advertises 203.0.113.0/24 to the world via BGP) and forwards it through the core to the access aggregation layer — MPLS-labelled in most carriers — and finally to the CMTS or OLT headend serving this neighbourhood. This is the last shared segment before the last mile.',
+      why: 'The headend is the real bottleneck of consumer internet: hundreds of subscribers share one downstream channel group, which is why speeds sag at 8 p.m. and not at 4 a.m.',
+      component: 'ISP core + CMTS/OLT headend',
+      layer: 'ISP · L2/L3 aggregation',
+      abstraction: 'Shared access medium with scheduled downstream',
+      protocol: 'MPLS + DOCSIS 3.1 / GPON',
+      misconception: '"My 1 Gbps plan is dedicated bandwidth." It is a contended shared segment with an oversubscription ratio the ISP never publishes — usually somewhere between 20:1 and 50:1.',
+      analogy: 'A motorway that narrows to two lanes for the final exit everyone in the suburb uses.',
+      command: 'ping -c 20 "$(traceroute -n api.shop.dev | sed -n 3p | awk "{print \\$2}")"',
+      production: 'Bufferbloat lives here: oversized headend queues turn congestion into 500ms of latency instead of packet loss. fq_codel and CAKE on the home router fix the upstream half; the downstream half is the ISP’s problem.'
+    }
+  },
+
+  {
+    id: 'return-modem',
+    chapter: 22,
+    title: 'Down the last mile to the modem',
+    node: 'modem',
+    mode: 'net',
+    packet: {
+      label: 'DOCSIS downstream → Ethernet',
+      layers: ['eth', 'ip', 'tcp'],
+      fields: {
+        eth: { 'Src MAC': 'ISP CMTS', 'Dst MAC': 'a4:91:b1:0c:44:e2 (router WAN)', 'EtherType': '0x0800' },
+        ip: { 'Src': '104.18.32.7', 'Dst': '203.0.113.77', 'TTL': '53' }
+      }
+    },
+    explain: {
+      what: 'The headend schedules the packet into a downstream OFDM channel; the modem demodulates the RF signal back into bits, reassembles the DOCSIS frame, extracts the Ethernet frame inside it, and hands it to the router’s WAN port over the coax-to-Ethernet boundary. Physics becomes packets again.',
+      why: 'This modulation/demodulation boundary is where the digital world meets analogue reality — and where a corroded connector or a noisy neighbour shows up as retransmissions rather than errors.',
+      component: 'Cable modem (DOCSIS 3.1 PHY/MAC)',
+      layer: 'Home · OSI L1/L2',
+      abstraction: 'RF spectrum → Ethernet frames',
+      protocol: 'DOCSIS 3.1 (OFDM downstream)',
+      misconception: '"The modem is a router." A pure modem is a media converter with no IP intelligence at all; the combo boxes ISPs ship glue a modem, router, switch, and AP into one plastic shell, which is why one reboot fixes four different problems.',
+      analogy: 'A translator converting radio waves into written words, sentence by sentence, with no opinion about their content.',
+      command: 'ping -c 100 192.168.1.1 | tail -2   # jitter here = last-mile trouble',
+      production: 'Downstream SNR and upstream power levels on the modem status page diagnose more "the internet is slow" tickets than any packet capture ever will.'
+    }
+  },
+
+  {
+    id: 'return-nat-reverse',
+    chapter: 22,
+    title: 'The router remembers: reverse NAT',
+    node: 'nat',
+    mode: 'net',
+    packet: {
+      label: 'NAT: 203.0.113.77:38112 → 192.168.1.23:51324',
+      layers: ['ip', 'tcp'],
+      fields: {
+        ip: { 'Src': '104.18.32.7', 'Dst (before)': '203.0.113.77', 'Dst (after)': '192.168.1.23', 'TTL': '53 → 52' },
+        tcp: { 'Src Port': '443', 'Dst Port (before)': '38112', 'Dst Port (after)': '51324', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'The router looks up the flow in its conntrack table using the reply tuple (104.18.32.7:443 → 203.0.113.77:38112), finds the entry created on the way out, and rewrites the destination back to 192.168.1.23:51324. Same table, same mechanism as the Docker DNAT from chapter 17 — Linux uses literally the same nf_conntrack code on your home router.',
+      why: 'This is why IPv4 survived: one public address multiplexes an entire household because the port number becomes part of the identity.',
+      component: 'Home router NAT (netfilter MASQUERADE, reply direction)',
+      layer: 'Home · L3/L4',
+      abstraction: 'Port-multiplexed address translation',
+      protocol: 'NAPT (RFC 3022 / RFC 6888)',
+      misconception: '"The router magically knows which device wanted this." Nothing magic: a table row, created by the outbound packet, keyed on the 4-tuple, with a timer. If the row expires — default 5 days for ESTABLISHED, but 5 MINUTES on cheap routers — the connection dies silently. That is what TCP keepalives are actually for.',
+      analogy: 'A hotel switchboard with a notepad: "call from room 23 to 555-0100 went out on line 4" — when line 4 rings back, room 23 gets it.',
+      command: 'sudo conntrack -L | grep 51324\nsysctl net.netfilter.nf_conntrack_tcp_timeout_established',
+      production: 'Idle WebSocket and long-poll connections dying after exactly 5 or 15 minutes is always a NAT timeout. Send application-level pings under 60 seconds and stop blaming the client library.'
+    },
+    code: [
+      { title: 'The row that makes this work', lang: 'bash', code: 'tcp  6 431982 ESTABLISHED\n  src=192.168.1.23 dst=104.18.32.7 sport=51324 dport=443    <- original\n  src=104.18.32.7  dst=203.0.113.77 sport=443 dport=38112   <- reply\n  [ASSURED] mark=0 use=1' }
+    ]
+  },
+
+  {
+    id: 'return-switch',
+    chapter: 22,
+    title: 'The switch forwards straight to one port',
+    node: 'switch',
+    mode: 'net',
+    packet: {
+      label: 'Frame → 3c:07:54:6a:2b:91',
+      layers: ['eth', 'ip', 'tcp', 'tls'],
+      fields: {
+        eth: { 'Src MAC': 'a4:91:b1:0c:44:e2 (router)', 'Dst MAC': '3c:07:54:6a:2b:91 (dev-laptop)', 'EtherType': '0x0800' },
+        ip: { 'Src': '104.18.32.7', 'Dst': '192.168.1.23', 'TTL': '52' },
+        tcp: { 'Src Port': '443', 'Dst Port': '51324', 'Flags': 'PSH, ACK' }
+      }
+    },
+    explain: {
+      what: 'The router consults its ARP cache for 192.168.1.23, writes 3c:07:54:6a:2b:91 as the destination MAC, and puts the frame on the LAN. The switch reads that MAC, finds it in the CAM table pointing at port 4, and forwards it there and nowhere else — the other ports never see a bit of it. Store-and-forward, roughly a microsecond.',
+      why: 'CAM-based unicast forwarding is why switches replaced hubs: your neighbour’s laptop cannot even passively see the frames, and every port gets full bandwidth simultaneously.',
+      component: 'Ethernet switch (CAM/MAC address table)',
+      layer: 'Home LAN · OSI L2',
+      abstraction: 'Learned MAC → port mapping',
+      protocol: 'IEEE 802.3 Ethernet',
+      misconception: '"A switch is a fast hub." A hub repeats every bit to every port (one collision domain); a switch learns addresses and forwards selectively. It is a completely different device that happens to have the same shape.',
+      analogy: 'A mail sorter who has memorised every resident’s pigeonhole — no announcements to the whole building.',
+      command: 'sudo arp -an | grep 192.168.1.23',
+      production: 'CAM table exhaustion is a real attack (macof floods it until the switch fails open into hub mode). Port security and sticky MACs are the mitigation on managed switches.'
+    }
+  },
+
+// __END__
+];
