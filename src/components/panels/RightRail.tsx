@@ -34,6 +34,11 @@ export function RightRail() {
   const [expanded, setExpanded] = useState(false);
   const tabsId = useId();
 
+  // Story mode: the slide already IS the explanation, so the sheet carries only the
+  // instruments. Clamp in render (repo rule: never correct state in an effect).
+  const visibleTabs = storyMode ? TABS.filter((t) => t.id !== 'explain') : TABS;
+  const activeTab: Tab = storyMode && tab === 'explain' ? 'state' : tab;
+
   const accent = step ? modeColor(step.mode) : 'var(--text-3)';
 
   return (
@@ -50,14 +55,16 @@ export function RightRail() {
         // at z-30 still win.
         'absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden',
         'rounded-t-[var(--r-lg)] border-t border-line',
-        'bg-[color-mix(in_oklab,var(--bg-1)_88%,transparent)]',
+        // OPAQUE. A translucent sheet over the slide card produced text-on-text mush on
+        // phones — readability beats the glass effect, in both themes.
+        'bg-[var(--bg-1)]',
         expanded ? 'h-[70%]' : 'h-auto',
         // Desktop: a real column in the shell's flex row, stretched by the row itself.
         // clamp: never wider than a third of the window, so the rail cannot push the
         // shell past the viewport on smaller screens.
         'lg:static lg:z-auto lg:h-auto lg:min-h-0 lg:w-[400px] lg:max-w-[34vw] lg:shrink-0',
         'lg:rounded-none lg:border-t-0 lg:border-l',
-        'lg:bg-[color-mix(in_oklab,var(--bg-1)_55%,transparent)]',
+        'lg:bg-[var(--bg-1)]',
       ].join(' ')}
     >
       {/* ── desktop ─────────────────────────────────────────────────────────── */}
@@ -131,8 +138,8 @@ export function RightRail() {
           aria-label="Panel sections"
           className="flex gap-1 border-b border-line px-2 pb-1.5"
         >
-          {TABS.map((t) => {
-            const selected = tab === t.id;
+          {visibleTabs.map((t) => {
+            const selected = activeTab === t.id;
             return (
               <button
                 key={t.id}
@@ -166,13 +173,13 @@ export function RightRail() {
           id={tabsId}
           role="tabpanel"
           tabIndex={0}
-          aria-labelledby={`${tabsId}-tab-${tab}`}
+          aria-labelledby={`${tabsId}-tab-${activeTab}`}
           hidden={!expanded}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         >
-          {tab === 'explain' ? <ExplainPanel /> : null}
-          {tab === 'state' ? <OsStatePanel /> : null}
-          {tab === 'packet' ? <PacketInspector /> : null}
+          {activeTab === 'explain' ? <ExplainPanel /> : null}
+          {activeTab === 'state' ? <OsStatePanel /> : null}
+          {activeTab === 'packet' ? <PacketInspector /> : null}
         </div>
       </div>
     </aside>

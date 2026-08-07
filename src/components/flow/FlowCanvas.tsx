@@ -112,7 +112,8 @@ export function FlowCanvas() {
       </div>
 
       {/* ── the slide ───────────────────────────────────────────────────────── */}
-      <div className="grid min-h-0 flex-1 place-items-center px-3 pb-4 pt-3 sm:px-8 sm:pb-8 sm:pt-5">
+      {/* pb-24 on phones: clearance for the bottom sheet's peek header. */}
+      <div className="grid min-h-0 flex-1 place-items-center px-3 pb-24 pt-3 sm:px-8 sm:pb-8 sm:pt-5">
         {/* Keyed on step.id: each step slides in like the next slide of a deck. */}
         <div
           key={current.step.id}

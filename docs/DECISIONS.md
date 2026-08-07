@@ -171,3 +171,9 @@ Record anything the next agent would otherwise have to rediscover.
   rewrites. Contract C8 trimmed accordingly.
 - 2026-08-05 — ink-3 lifted to clear WCAG 4.5:1 on both grounds (#767065 on paper,
   #8b877e on dark) — it labels every instrument, so it is body text, not decoration.
+- 2026-08-05 — The mobile bottom sheet is OPAQUE and, in story mode, carries only the
+  State/Packet tabs. The translucent sheet rendered the Explain tab over the slide card:
+  the same words twice, bleeding through each other — the worst mobile break we shipped.
+  Readability beats glass; the tab clamp happens in render, never in an effect.
+- 2026-08-05 — The slide grid keeps pb-24 on phones as clearance for the sheet's peek
+  header, so the card's disclosure rows are never buried underneath it.
