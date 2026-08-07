@@ -80,3 +80,20 @@ Record anything the next agent would otherwise have to rediscover.
 - 2026-08-04 — QA note: browser extensions inject attributes on <body> before hydration
   (cz-shortcut-listen, Grammarly). `suppressHydrationWarning` on <body> is the fix; it is
   not an app bug.
+- 2026-08-04 — ENGINE v2: the scene is a TREE of rooms, not one flat world. `componentTree.ts`
+  places all 87 NodeIds as leaves under 15 new container ids. Containers are not new
+  content — they are the rooms the existing boxes already sat in, made explicit so the
+  camera has somewhere to descend into.
+- 2026-08-04 — Arriving at a box does NOT open it; the next beat on it does. `foldDisclosure`
+  therefore marks only ANCESTORS of the focus as opened. That pair of beats is the entire
+  "black box until you reach it" mechanic, and without it `open` never fires.
+- 2026-08-04 — `cross` is a distinct action from `travel`. A sibling hop is one packet
+  flight; leaving a subsystem is climb-out-then-descend. Collapsing both into `travel` hid
+  the most expensive camera move in the lesson (57 of 194 steps).
+- 2026-08-04 — Thrash metric is calibrated at climb >= 3, not >= 2. Climb 2 is a lateral
+  move between two sub-rooms of the same parent (driverlayer -> netstack inside the
+  kernel) and is normal. At >= 2 every chapter looked broken; at >= 3 none do.
+- 2026-08-04 — Two rooms deliberately exceed the <= 9 boxes guideline: `journey` (11
+  stations) and `netstack` (12). Both are rooms whose breadth IS the lesson — L0 shows the
+  whole trip once, and ch8 walks the entire network stack. Splitting them would trade one
+  honest wide room for constant climbing.

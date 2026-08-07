@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "convert": "node scripts/convert-content.mjs",
     "convert:watch": "node scripts/convert-content.mjs --watch",
-    "validate": "node scripts/validate-content.mjs"
+    "validate": "node scripts/validate-content.mjs",
+    "derive": "node scripts/derive-scenes.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
