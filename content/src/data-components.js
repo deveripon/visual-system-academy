@@ -2,10 +2,10 @@
 window.COMPONENTS = {
   appcode: {
     name: 'Application JavaScript',
-    tagline: "Your fetch() call — the single line that sets 87 machines in motion",
-    description: "The application source: an e-commerce SPA executing await fetch('https://api.shop.dev/products?limit=20'). To the developer it is one expression; to the system it is a contract that will be honored by compilers, kernels, routers, and a database on another continent.",
-    history: "JavaScript was written by Brendan Eich at Netscape in ten days in May 1995, shipped as LiveScript and renamed JavaScript for marketing adjacency to Java. Standardized as ECMA-262 in 1997. Promises landed in ES2015, async/await in ES2017, and the fetch() API was specified by WHATWG and shipped in Chrome 42 (2015), replacing XMLHttpRequest.",
-    purpose: 'Express intent — request data over the network — at the highest possible abstraction, delegating every hard problem downward.',
+    tagline: "The one line you wrote — and the 87 machines that rush to keep its promise",
+    description: "This is the one line of code you actually wrote: ask the shop's server for a list of products. It looks like a single sentence — await fetch('https://api.shop.dev/products?limit=20') — but the moment it runs, two compilers, an operating system, your router, and a database far away all get to work keeping that little promise.",
+    history: "JavaScript was famously written in ten days. In May 1995 Brendan Eich, at Netscape, shipped it as LiveScript, and marketing promptly renamed it JavaScript to ride the coattails of Java, a completely unrelated language. It was handed to a standards body as ECMA-262 in 1997 and has been growing ever since: Promises in ES2015, async/await in ES2017, and fetch() — specified by the WHATWG and shipped in Chrome 42 in 2015 — which finally retired the awkwardly named XMLHttpRequest.",
+    purpose: "To let you ask for data in one plain sentence, and hand every genuinely hard part of that wish — encoding, routing, retrying, decrypting — down to the layers below.",
     responsibilities: [
       'Construct the request: URL, method, headers, body',
       'Suspend at await, yielding the thread back to the event loop',
@@ -28,10 +28,10 @@ window.COMPONENTS = {
   },
   parser: {
     name: 'V8 Parser',
-    tagline: 'Turns UTF-16 characters into a syntax tree — lazily, because parsing is expensive',
-    description: 'The V8 scanner tokenizes source text and the parser builds an AST while performing scope analysis. V8 parses lazily: a fast PreParser skims function bodies for syntax errors only, deferring full parsing until a function is actually called.',
-    history: 'V8 was unveiled with Chrome on 2 September 2008, built by a team in Aarhus led by Lars Bak, veteran of Self and HotSpot. Lazy parsing and the PreParser were early answers to the observation that a typical page parses far more code than it ever runs.',
-    purpose: 'Convert raw source into a structured form the compiler pipeline can analyze, as cheaply as possible.',
+    tagline: "Reads your code like a sentence — and skims the parts you may never run",
+    description: "This is the part of V8 that reads your source code the way you read a sentence: first it works out where each word ends, then what the grammar means. The scanner chops the text into tokens, and the parser assembles them into an AST, a tree that captures the structure of the program, while noting which variable belongs to which scope. It is also deliberately lazy: a fast PreParser skims each function body just far enough to catch syntax errors, and leaves the real reading until the function is actually called.",
+    history: "V8 was unveiled alongside Chrome on 2 September 2008, the work of a team in Aarhus led by Lars Bak, a veteran of the Self and HotSpot virtual machines. Lazy parsing and the PreParser came early, from a simple observation: a typical page ships far more code than it will ever actually run, so why pay to understand all of it?",
+    purpose: "To turn a wall of characters into an organized shape the rest of the engine can reason about — and to do it as cheaply as it possibly can.",
     responsibilities: [
       'Tokenize the character stream (scanner) including string/number literal decoding',
       'Build AST nodes for full-parsed functions',
@@ -54,10 +54,10 @@ window.COMPONENTS = {
   },
   ast: {
     name: 'Abstract Syntax Tree',
-    tagline: 'The program as a tree: structure without the punctuation',
-    description: "The AST is the parsed representation of your code: a CallExpression wrapping a MemberExpression, an AwaitExpression, string literals. Whitespace, comments, and parentheses are gone; what remains is pure structure that compilers, linters, and bundlers all consume.",
-    history: 'Syntax trees date to 1960s compiler theory (the front end/back end split of Algol-era compilers). In the JS world, the de facto ESTree format descends from the Mozilla SpiderMonkey Parser API (circa 2010-2012), which tools like Esprima, Acorn, and Babel adopted and extended.',
-    purpose: 'Give every downstream tool — interpreter, optimizer, linter, minifier — one unambiguous structural view of the program.',
+    tagline: "Your program as a tree — all of the meaning, none of the punctuation",
+    description: "Once your code has been read, this is what is left: a tree. Every piece of the program becomes a labeled branch — a CallExpression for the fetch(...) call, a MemberExpression for the dot in between, an AwaitExpression for await, a plain string literal for the URL. Spaces, comments and brackets are gone, because they were only ever there to help humans; what remains is pure structure, and it is what compilers, linters and bundlers all read.",
+    history: "Syntax trees come from 1960s compiler theory, from the Algol era that split compilers into a front end that understands and a back end that emits. JavaScript's own family tree of ASTs — the de facto ESTree format — descends from Mozilla's SpiderMonkey Parser API around 2010-2012, which Esprima, Acorn and Babel picked up and extended into the shared shape tools speak today.",
+    purpose: "To hand every tool that touches your code — interpreter, optimizer, linter, minifier — one clear, unambiguous picture of what the program actually says.",
     responsibilities: [
       'Represent every construct as typed nodes (FunctionDeclaration, CallExpression, AwaitExpression)',
       'Carry scope and position metadata for errors and source maps',
@@ -80,10 +80,10 @@ window.COMPONENTS = {
   },
   ignition: {
     name: 'Ignition Interpreter',
-    tagline: "V8's register-machine interpreter — every function starts life here",
-    description: 'Ignition walks the AST once to generate compact bytecode, then executes it on a register machine with an accumulator. It also collects type feedback in feedback vectors — the raw material TurboFan later uses to speculate.',
-    history: 'Ignition shipped in 2016, replacing the old full-codegen baseline compiler. The motivation was memory: full-codegen machine code was bloating heap on mobile devices, and bytecode is roughly 4-8x smaller. It completed the modern pipeline alongside TurboFan in 2017.',
-    purpose: 'Start executing code fast with minimal memory, while gathering the profiling data that makes later optimization possible.',
+    tagline: "Every function's first home: quick to start, and quietly taking notes",
+    description: "Ignition is V8's interpreter, and it is what actually runs your code the very first time. It walks the tree once and writes out bytecode — a compact list of simple instructions — then executes them on a pretend CPU with numbered registers and one special scratch slot called the accumulator. While it runs it keeps notes in feedback vectors, a record of what kinds of values really turned up at each call site, and those notes are the raw material the optimizing compiler later gambles on.",
+    history: "Ignition shipped in 2016, replacing an older baseline compiler called full-codegen. The motivation was memory rather than speed: full-codegen's machine code was bloating the heap on phones, and bytecode is roughly 4-8x smaller. Together with TurboFan it completed V8's modern pipeline in 2017.",
+    purpose: "To get your code running immediately with very little memory, while quietly collecting the evidence that makes real optimization possible later.",
     responsibilities: [
       'Generate bytecode from the AST in a single pass',
       'Execute bytecode via handler stubs written in TurboFan macro-assembly',
@@ -106,10 +106,10 @@ window.COMPONENTS = {
   },
   bytecode: {
     name: 'V8 Bytecode',
-    tagline: 'LdaSmi, Star, CallProperty — the compact instruction set of a virtual register machine',
-    description: "Ignition bytecode is a sequence of one-to-few-byte instructions for a register machine with a special accumulator register: LdaSmi [20] loads a small integer, Star r0 stores it, CallProperty1 invokes a method. It is dense, portable across CPUs, and annotated with feedback slot indices.",
-    history: "Bytecode as portable instruction encoding traces to the Pascal p-machine (1970s) and Smalltalk-80. V8 resisted bytecode for its first eight years (2008-2016), compiling straight to machine code, until mobile memory pressure made Ignition's compact encoding the better trade.",
-    purpose: 'Encode program semantics in a form that is cheap to generate, small in memory, and fast enough to interpret.',
+    tagline: "LdaSmi, Star, CallProperty — your program rewritten as tiny, blunt commands",
+    description: "This is your JavaScript boiled down to a list of very small, very dumb instructions, each one just a byte or a few long. LdaSmi [20] loads the number 20, Star r0 stores it into register zero, CallProperty1 calls a method with one argument. It is an invented instruction set for an invented machine, which is exactly why it runs identically on any real CPU, and every instruction carries the index of the feedback slot where the interpreter files its notes.",
+    history: "The idea of portable bytecode goes back to the Pascal p-machine of the 1970s and to Smalltalk-80. V8 resisted it for its first eight years — from 2008 to 2016 it compiled straight to machine code — until memory pressure on mobile devices made Ignition's compact encoding the better bargain.",
+    purpose: "To hold the meaning of your program in a form that is cheap to produce, small to keep around, and quick enough to run directly.",
     responsibilities: [
       'Represent operations with implicit accumulator semantics to keep encoding dense',
       'Reference feedback vector slots so execution and profiling stay fused',
@@ -131,10 +131,10 @@ window.COMPONENTS = {
   },
   turbofan: {
     name: 'TurboFan Optimizing Compiler',
-    tagline: 'Speculates from type feedback, compiles hot code, deoptimizes when proven wrong',
-    description: 'TurboFan takes bytecode plus feedback vectors for hot functions and builds a sea-of-nodes graph, applying inlining, escape analysis, and redundancy elimination to emit near-native machine code. Every optimization is a bet guarded by checks; a failed check triggers deoptimization back to Ignition.',
-    history: "TurboFan shipped in 2015 and, with Ignition, fully replaced the 2010-era Crankshaft compiler in 2017. Its sea-of-nodes IR follows Cliff Click's 1995 work. The tiering ladder later grew Sparkplug (2021, baseline) and Maglev (2023, mid-tier) beneath it.",
-    purpose: 'Make dynamically-typed JavaScript run at speeds competitive with statically-typed code — for the code paths that stay monomorphic.',
+    tagline: "Bets on what your code usually does — and pays up honestly when it is wrong",
+    description: "TurboFan is the optimizing compiler: once a function has run often enough to count as hot, it takes that function's bytecode plus the interpreter's notes and produces genuinely fast machine code. It builds the program as a graph — a sea of nodes — and rearranges it freely: inlining small functions into their callers, proving via escape analysis that some objects never outlive the function and so never need allocating at all, deleting work it can show is redundant. Every speedup is really a bet, guarded by a small check; when a check fails the code deoptimizes and execution drops calmly back into the interpreter.",
+    history: "TurboFan shipped in 2015 and, together with Ignition, finished off the 2010-era Crankshaft compiler in 2017. Its sea-of-nodes representation traces back to Cliff Click's 1995 work. The ladder later grew extra rungs beneath it: Sparkplug, a fast baseline compiler, in 2021, and the mid-tier Maglev in 2023.",
+    purpose: "To make a language with no type declarations run about as fast as one that has them — at least along the paths where your program behaves consistently.",
     responsibilities: [
       'Build and optimize a sea-of-nodes graph from bytecode + feedback',
       'Speculate on types/shapes and insert guard checks',
@@ -157,10 +157,10 @@ window.COMPONENTS = {
   },
   machinecode: {
     name: 'JIT Machine Code',
-    tagline: 'The x86-64 your JavaScript becomes — living in executable heap pages',
-    description: "TurboFan's output: raw CPU instructions written into executable memory in V8's code space, entered directly on the next call. It is specialized to observed types, laced with guard checks, and can be discarded wholesale on deopt or GC.",
-    history: "JIT compilation traces to LC^2 (1960s) and Smalltalk/Self at PARC and Stanford — Self's 1991 adaptive optimization is V8's direct ancestor, via HotSpot and the same Lars Bak lineage. W^X security policies (write XOR execute) reshaped JIT design in the 2010s.",
-    purpose: 'Close the loop: dynamic language semantics executed at native instruction speed.',
+    tagline: "The actual x86-64 instructions your JavaScript turned into",
+    description: "This is the finish line: real CPU instructions, written into a page of memory marked executable, and jumped straight into on the next call. It is code tailored to what your program has been doing so far, sprinkled with inline caches and guard branches that check those assumptions still hold, and the engine can throw the whole thing away at a moment's notice — on a failed guard, or when the garbage collector wants the space back.",
+    history: "Compiling at runtime goes back to LC^2 in the 1960s and to the Smalltalk and Self projects at Xerox PARC and Stanford; Self's 1991 adaptive optimization is V8's direct ancestor, handed down through HotSpot and the same Lars Bak. In the 2010s security reshaped the craft: W^X policies, write XOR execute, mean a page of memory may be writable or executable but never both at once, so JIT compilers learned to flip pages back and forth.",
+    purpose: "To close the loop: a flexible, dynamic language finally running at the speed of the bare metal underneath it.",
     responsibilities: [
       'Occupy V8 code space pages flipped between writable and executable',
       'Embed inline caches and guard branches to validate speculation',
@@ -182,10 +182,10 @@ window.COMPONENTS = {
   },
   eventloop: {
     name: 'Event Loop',
-    tagline: 'One thread, an ordered set of queues, and the illusion of concurrency',
-    description: 'The event loop repeatedly pulls a task from the task queues, runs it to completion, then drains the entire microtask queue (promise reactions) before touching the next task. Your await fetch() parks a continuation on the microtask queue; the loop is what eventually runs it.',
-    history: 'Event-driven single-threaded UIs go back decades, but the browser event loop was only rigorously specified in the WHATWG HTML spec (mid-2000s onward, task vs microtask formalized alongside Promises circa 2013-2015). Node.js (2009) implemented its variant on libuv with distinct phases: timers, pending callbacks, poll, check, close.',
-    purpose: 'Multiplex many pending operations onto one JS thread without data races, by making all JS run-to-completion.',
+    tagline: "One worker, several to-do lists, and a very convincing illusion of doing everything at once",
+    description: "JavaScript runs on a single thread, so the event loop is the small piece of bookkeeping that makes it feel like more. It takes one task off a queue, runs it all the way to the end without interruption, then empties the entire microtask queue — where promise callbacks wait — before it will so much as glance at the next task. Your await fetch() parks the rest of your function as a microtask; the loop is what eventually picks it up and carries on where you left off.",
+    history: "Event-driven single-threaded interfaces are decades old, but the browser's loop was only written down rigorously in the WHATWG HTML specification from the mid-2000s onward, with the task-versus-microtask distinction formalized alongside Promises around 2013-2015. Node.js took its own version in 2009, built on libuv with named phases: timers, pending callbacks, poll, check, close.",
+    purpose: "To let one thread juggle hundreds of half-finished operations at once, with no chance of two of them touching the same data at the same moment.",
     responsibilities: [
       'Dequeue and run macrotasks (events, timers, I/O callbacks) one at a time',
       'Drain microtasks completely after every task — promises always beat setTimeout',
@@ -208,10 +208,10 @@ window.COMPONENTS = {
   },
   webapi: {
     name: 'Web APIs',
-    tagline: 'The browser-provided half of "JavaScript": fetch, timers, DOM — none of it in ECMA-262',
-    description: 'fetch(), setTimeout, DOM, WebSocket: capabilities the browser exposes to JS but which live outside the JS engine, implemented in C++ in the renderer. Calling fetch() hands the request across this boundary; V8 itself has no idea what a network is.',
-    history: 'The pattern was set by XMLHttpRequest — built by Microsoft for Outlook Web Access in 1999 as an ActiveX control, cloned by Mozilla, and the seed of Ajax (term coined 2005). WHATWG (founded 2004) later specified fetch (2015) as the modern, promise-based replacement.',
-    purpose: 'Give sandboxed JavaScript controlled, permissioned access to platform capabilities: network, storage, rendering, devices.',
+    tagline: "The half of JavaScript that is not JavaScript at all",
+    description: "fetch(), setTimeout, the DOM, WebSocket — none of these are part of the JavaScript language, and you will not find one of them in ECMA-262. They are powers the browser lends to your code, implemented in C++ inside the renderer and exposed through a thin generated bridge called bindings. When you call fetch() you hand the request across that bridge; V8 itself has never heard of a network.",
+    history: "The pattern was set by XMLHttpRequest, which Microsoft built for Outlook Web Access in 1999 as an ActiveX control, Mozilla cloned, and the industry rebranded as Ajax when the term was coined in 2005. The WHATWG, founded in 2004, later specified fetch as the modern promise-based replacement in 2015.",
+    purpose: "To give sandboxed, untrusted JavaScript careful and permissioned access to the real machine: the network, storage, the screen, devices.",
     responsibilities: [
       'Implement fetch per the WHATWG spec: request construction, CORS, redirects, streaming bodies',
       'Bridge V8 to Blink/browser internals via bindings (IDL-generated glue)',
@@ -233,10 +233,10 @@ window.COMPONENTS = {
   },
   netservice: {
     name: 'Chrome Network Service',
-    tagline: 'A dedicated process (PID 4903) that owns every socket the browser opens',
-    description: "Chrome's network stack runs in its own sandboxed utility process: the renderer running your JS never touches a socket. The fetch request crosses process boundaries over Mojo IPC to the network service, which owns DNS, connection pools, the HTTP cache, cookies, and TLS.",
-    history: 'Chrome shipped multi-process in 2008 (site isolation for crashes and security), but networking stayed in the browser process until the servicification effort moved it into a separate network service around Chrome 70 (2018) — restartable on crash and lockable with a tighter sandbox.',
-    purpose: 'Centralize and isolate all network state so renderers stay unprivileged and a networking crash does not take down the browser.',
+    tagline: "A whole separate process, PID 4903, that owns every socket the browser has",
+    description: "Chrome does not let the tab running your JavaScript touch the network at all. Networking lives in its own sandboxed process, and your fetch request travels there over Mojo, Chrome's internal messaging system, before a single packet exists. That process owns everything network-shaped: DNS lookups, the pool of open connections, the HTTP cache on disk, your cookies, and TLS.",
+    history: "Chrome shipped as a multi-process browser in 2008, splitting tabs apart for crash-safety and security, but networking stayed in the privileged browser process for another decade. The long servicification effort finally moved it into a separate network service around Chrome 70 in 2018 — restartable when it crashes, and lockable behind a tighter sandbox.",
+    purpose: "To keep every scrap of network state in one isolated place, so web pages stay powerless and a networking crash takes down one process instead of the whole browser.",
     responsibilities: [
       'Terminate all HTTP/HTTPS: header policy, HTTP/2 and HTTP/3 framing, redirects',
       'Own the socket pools, DNS host resolver cache, and HTTP disk cache',
@@ -259,10 +259,10 @@ window.COMPONENTS = {
   },
   httpcache: {
     name: 'Browser HTTP Cache',
-    tagline: 'The fastest request is the one that becomes a disk read instead',
-    description: "Chrome's HTTP cache (the Simple Cache backend on disk) stores responses keyed by URL — and since 2020, partitioned by top-level site to stop cross-site tracking. Cache-Control, ETag, and Last-Modified decide whether a request is served locally, revalidated with If-None-Match, or sent in full.",
-    history: 'HTTP caching semantics date to HTTP/1.0 (1996) and were refined through RFC 2616 (1999), RFC 7234 (2014), and now RFC 9111 (2022). Chrome replaced its original blockfile backend with the Simple Cache (one file per entry) in the 2010s; cache partitioning (double-keying) shipped in Chrome 86 (2020).',
-    purpose: 'Eliminate network round trips entirely when a stored response is provably fresh, and shrink them to 304s when it is not.',
+    tagline: "The fastest request in the world is the one that quietly becomes a disk read",
+    description: "This is the browser's memory of things it has already downloaded. Chrome keeps responses on disk in the Simple Cache, keyed by URL and, since 2020, also by which site you were on when you fetched them, so one site cannot learn what you loaded on another. Headers decide what happens next: Cache-Control says how long a copy stays fresh, and ETag or Last-Modified let the browser ask has this changed? with an If-None-Match header and get back a tiny 304 instead of the whole file.",
+    history: "HTTP caching rules date back to HTTP/1.0 in 1996 and were refined through RFC 2616 in 1999, RFC 7234 in 2014, and now RFC 9111 in 2022. Chrome swapped its original blockfile storage for the Simple Cache, one file per entry, during the 2010s, and cache partitioning — double-keying by top-level site — shipped in Chrome 86 in 2020.",
+    purpose: "To skip the network entirely when a stored copy is provably still good, and to shrink the trip to almost nothing when it merely might be.",
     responsibilities: [
       'Store responses with their validators (ETag, Last-Modified) and freshness lifetime',
       'Serve fresh hits with zero network; issue conditional revalidations otherwise',
@@ -285,10 +285,10 @@ window.COMPONENTS = {
   },
   socketpool: {
     name: 'Connection Pool',
-    tagline: 'Six lanes per origin for HTTP/1.1 — or one multiplexed highway for H2/H3',
-    description: 'The network service maintains pools of reusable connections: for HTTP/1.1, up to 6 parallel TCP connections per origin group with requests queued behind them; for HTTP/2 and HTTP/3, a single connection carrying many concurrent streams. Reuse skips DNS, TCP, and TLS entirely — the three most expensive round trips.',
-    history: 'HTTP/1.0 opened a connection per request; keep-alive (1.1, 1997) made reuse standard. RFC 2616 suggested 2 connections per host — browsers ignored it and settled on 6 (a limit RFC 7230 dropped in 2014). SPDY (2009) proved multiplexing, becoming HTTP/2 in RFC 7540 (2015); HTTP/3 over QUIC followed in RFC 9114 (2022).',
-    purpose: 'Amortize connection setup cost across requests and bound per-origin parallelism.',
+    tagline: "Six lanes to each server for old HTTP — or one wide highway for the modern kind",
+    description: "Opening a connection is expensive, so the browser keeps the ones it has and lends them out again. With HTTP/1.1 it will hold up to 6 parallel TCP connections per origin group and queue everything beyond that; with HTTP/2 and HTTP/3 one connection is enough, because those protocols carry many requests down it simultaneously as separate streams. Reusing a warm connection skips DNS, TCP and TLS — the three slowest steps of the entire journey.",
+    history: "HTTP/1.0 opened a fresh connection for every single request; keep-alive in HTTP/1.1 in 1997 made reuse normal. RFC 2616 politely suggested two connections per host, browsers ignored it and settled on six, and RFC 7230 dropped the recommendation altogether in 2014. Google's SPDY proved multiplexing in 2009 and became HTTP/2 in RFC 7540 in 2015, with HTTP/3 over QUIC following in RFC 9114 in 2022.",
+    purpose: "To spread the cost of setting up a connection across many requests, while stopping any single site from claiming all your bandwidth at once.",
     responsibilities: [
       'Group connections by scheme + host + port (plus proxy and partition key)',
       'Queue requests when the per-group limit (6) is reached',
@@ -311,10 +311,10 @@ window.COMPONENTS = {
   },
   nodejs: {
     name: 'Node.js Runtime',
-    tagline: 'V8 plus libuv plus a standard library — JavaScript with the OS on speed dial',
-    description: 'Node.js embeds V8 and pairs it with libuv for event-driven I/O, exposing servers, files, and sockets to JavaScript. In node mode our fetch() runs here (PID 1337): same V8, but the browser sandbox and its Web APIs are replaced by direct syscall access via C++ bindings.',
-    history: "Ryan Dahl presented Node.js at JSConf EU in November 2009, built on V8 with non-blocking I/O as the founding principle. npm arrived in 2010 (Isaac Schlueter). The io.js fork (2014) over governance merged back in 2015 as Node 4 under the Node.js Foundation. fetch() became global in Node 18 (2022), powered by undici.",
-    purpose: 'Run JavaScript as a first-class server-side language with an event-driven concurrency model.',
+    tagline: "V8 plus a way to talk to the operating system — JavaScript let out of the sandbox",
+    description: "Node.js is the same JavaScript engine Chrome uses, taken out of the browser and handed the keys to the machine. It pairs V8 with libuv, a C library for event-driven input and output, and adds a standard library for files, sockets and servers. In node mode our fetch() runs right here, in PID 1337: identical V8, but the browser's sandbox and Web APIs are replaced by direct access to the kernel through C++ bindings.",
+    history: "Ryan Dahl presented Node.js at JSConf EU in November 2009, built on V8 with non-blocking I/O as its founding principle. npm arrived in 2010 from Isaac Schlueter. A governance dispute split the project as io.js in 2014, and the two merged back in 2015 as Node 4 under the Node.js Foundation. fetch() finally became a global in Node 18 in 2022, powered by undici.",
+    purpose: "To make JavaScript a genuine server-side language, with an event-driven way of handling thousands of things at once.",
     responsibilities: [
       'Embed and configure V8 (heap limits, snapshots, flags)',
       'Bind JS to the OS: fs, net, dns, crypto via internal C++ bindings',
@@ -337,10 +337,10 @@ window.COMPONENTS = {
   },
   libuv: {
     name: 'libuv',
-    tagline: 'The C library that gives Node its event loop — epoll on Linux, kqueue on BSD, IOCP on Windows',
-    description: "libuv abstracts platform async I/O behind one loop API: sockets are watched with epoll on Linux, and operations without non-blocking kernel interfaces (file I/O, getaddrinfo) run on a default-4-thread pool. Node's event loop phases are literally libuv's uv_run() stages.",
-    history: 'libuv was created in 2011 for Node 0.5, when porting Node to Windows made libev (epoll/kqueue-centric) untenable — Microsoft funded the work, and IOCP required a new abstraction. It became independently popular (Julia, Neovim use it). Version 1.45 (2023) added io_uring support for file I/O.',
-    purpose: 'One portable event loop API over epoll, kqueue, IOCP, and event ports — so Node core never writes platform-specific I/O code.',
+    tagline: "The C library that gives Node its heartbeat — epoll on Linux, kqueue on BSD, IOCP on Windows",
+    description: "Every operating system has its own way of saying wake me when this socket has data, and no two of them agree. libuv hides all of that behind one loop: it waits in epoll on Linux, kqueue on the BSDs and macOS, IOCP on Windows. Work the kernel offers no asynchronous version of — reading files, resolving hostnames with getaddrinfo, some crypto — is handed instead to a small pool of threads, four by default. Node's event loop phases are literally the stages of libuv's uv_run().",
+    history: "libuv was created in 2011 for Node 0.5, when porting Node to Windows made libev — designed around epoll and kqueue — untenable. Microsoft funded the work, because Windows' IOCP needed a fundamentally different abstraction. It went on to have a life of its own inside Julia and Neovim, and version 1.45 in 2023 added io_uring support for file I/O.",
+    purpose: "To give Node one portable way to wait for the world, so its core never has to write a line of platform-specific I/O code.",
     responsibilities: [
       'Run the loop phases: timers, pending, poll (block in epoll_wait), check, close',
       'Watch socket fds for readiness and dispatch callbacks',
@@ -363,10 +363,10 @@ window.COMPONENTS = {
   },
   undici: {
     name: 'undici HTTP Client',
-    tagline: "Node's built-in fetch — a from-scratch HTTP/1.1 client named 'eleven' in Italian",
-    description: 'undici is the HTTP client that powers global fetch() in Node: its own spec-compliant fetch implementation, connection pooling, pipelining, and an llhttp-based parser — bypassing the legacy http.request stack entirely. The name is Italian for eleven: HTTP/1.1.',
-    history: 'Started by Matteo Collina around 2018 to escape the performance and design debt of the core http client, undici became an official Node.js project; Node 18 (April 2022) shipped it as the engine behind global fetch, which was marked stable in Node 21 (2023).',
-    purpose: 'Give Node a fast, correct, WHATWG-fetch-compatible HTTP client with explicit pooling semantics.',
+    tagline: "Node's built-in fetch, named eleven in Italian — as in HTTP/1.1",
+    description: "undici is the HTTP client hiding behind fetch() in Node. It is a from-scratch rewrite rather than a wrapper: its own spec-compliant fetch, its own connection pooling and pipelining, and a parser built on llhttp, deliberately bypassing Node's older http.request stack and everything it had accumulated. The name is a small joke — undici is Italian for eleven, as in one point one.",
+    history: "Matteo Collina started it around 2018 to escape the performance and design debt of Node's core HTTP client. It became an official Node.js project, and Node 18 shipped it in April 2022 as the engine behind global fetch, which was marked stable in Node 21 in 2023.",
+    purpose: "To give Node an HTTP client that is fast, faithful to the WHATWG fetch spec, and honest about exactly how it pools connections.",
     responsibilities: [
       'Implement WHATWG fetch semantics (Request/Response/Headers, streams, redirects)',
       'Pool and reuse keep-alive connections per origin (Agent/Pool/Client classes)',
@@ -389,10 +389,10 @@ window.COMPONENTS = {
   },
   libc: {
     name: 'C Library (glibc)',
-    tagline: 'The last userspace stop: wraps raw syscalls in functions with names and errno',
-    description: "glibc is the C runtime every process leans on: connect(), getaddrinfo(), malloc(). Node's C++ layer ultimately calls these wrappers, which marshal arguments into registers and execute the syscall instruction — then translate negative kernel returns into errno.",
-    history: 'The GNU C Library was started in 1987 by Roland McGrath for the GNU project; Ulrich Drepper drove it through the Linux boom (1995-2012). The leaner musl libc (Rich Felker, 2011) powers Alpine — the base of countless Docker images, and the source of subtle glibc-vs-musl DNS behavior differences.',
-    purpose: 'Provide the stable POSIX/C API surface so programs never hand-roll syscall assembly or resolver logic.',
+    tagline: "The last stop in userspace: turns connect() into an instruction the CPU understands",
+    description: "glibc is the layer of C code that nearly every program on Linux leans on for the basics: connect(), getaddrinfo(), malloc(). Node's C++ eventually calls these, and their real job is small but essential — put the right numbers in the right CPU registers, run the syscall instruction that enters the kernel, and translate the kernel's negative return value back into the familiar errno. It also owns name resolution, consulting nsswitch.conf and /etc/hosts before DNS is ever considered.",
+    history: "Roland McGrath started the GNU C Library in 1987 for the GNU project, and Ulrich Drepper carried it through the Linux boom from 1995 to 2012. A leaner alternative, musl libc, arrived from Rich Felker in 2011 and became the base of Alpine Linux — and therefore of countless Docker images, which is why subtle glibc-versus-musl differences in DNS behavior still ruin people's evenings.",
+    purpose: "To offer a stable, human-shaped API over the kernel, so no program ever has to hand-write syscall assembly or invent its own resolver.",
     responsibilities: [
       'Wrap syscalls: load the number and args, execute syscall, set errno on failure',
       'Implement the resolver: getaddrinfo consults nsswitch.conf, /etc/hosts, then DNS',
@@ -415,10 +415,10 @@ window.COMPONENTS = {
   },
   syscallgate: {
     name: 'Syscall Gate',
-    tagline: 'The syscall instruction: one CPU op that swaps ring 3 for ring 0',
-    description: 'The syscall instruction jumps to the kernel entry point stored in the LSTAR MSR (entry_SYSCALL_64), swaps to a kernel stack via swapgs, and saves user registers. It is not a function call — it is a controlled privilege transition, the only legitimate door into the kernel.',
-    history: 'Linux originally entered the kernel via int 0x80; Intel added SYSENTER (Pentium II, 1997) and AMD added SYSCALL (K6, 1997), which became the x86-64 standard. The Meltdown disclosure (January 2018) forced KPTI, which splits page tables at this boundary and made every syscall measurably pricier.',
-    purpose: 'Let untrusted user code request privileged services without ever executing privileged instructions itself.',
+    tagline: "One CPU instruction, and your program briefly becomes the most powerful thing on the machine",
+    description: "This is the door between your program and the kernel. The syscall instruction makes the CPU jump to an address the kernel registered at boot in a special register called LSTAR, land on entry_SYSCALL_64, switch to a private kernel stack with swapgs, and save your registers so it can hand them back afterwards. It is not a function call — it is a controlled change of privilege, and it is the only legitimate way in.",
+    history: "Linux originally entered the kernel through the software interrupt int 0x80. Then in 1997 Intel added SYSENTER with the Pentium II and AMD added SYSCALL with the K6, and AMD's became the x86-64 standard. In January 2018 the Meltdown disclosure forced KPTI, which splits the page tables at exactly this boundary — and made every single syscall measurably more expensive, forever.",
+    purpose: "To let untrusted code ask for privileged work — open this socket, send these bytes — without ever being trusted with a privileged instruction itself.",
     responsibilities: [
       'Transition CPL 3 to CPL 0 and switch to the kernel stack (swapgs)',
       'Save the user register frame (pt_regs) for the return trip',
@@ -441,10 +441,10 @@ window.COMPONENTS = {
   },
   syscalltable: {
     name: 'Syscall Table',
-    tagline: 'rax=41 means socket, 42 means connect — a numbered menu of kernel services',
-    description: 'The kernel dispatches syscalls by indexing sys_call_table with the number from rax: on x86-64, socket is 41, connect 42, sendto 44, epoll_wait 232. The table is generated from syscall_64.tbl at build time and is read-only at runtime — rootkits historically loved patching it.',
-    history: "Numbered syscall tables date to earliest UNIX (V6 had ~50 calls). Linux x86-64 launched with a clean renumbering in 2001-2003 (no more int 0x80 legacy numbers). New calls are appended, never renumbered — ABI stability is Linus' prime directive: never break userspace.",
-    purpose: 'Map a stable numeric ABI to in-kernel handler functions, one number per service, forever.',
+    tagline: "A numbered menu of kernel services: 41 is socket, 42 is connect",
+    description: "The kernel does not look up system calls by name — it looks them up by number. Your program puts a number in the rax register, and the kernel uses it as an index into sys_call_table to find the handler to run: on x86-64, 41 is socket, 42 is connect, 44 is sendto, 232 is epoll_wait. The table is generated at build time from a plain text file called syscall_64.tbl and is read-only once running, a lesson learned from rootkits that used to quietly rewrite entries.",
+    history: "Numbered syscall tables go back to the earliest UNIX, where V6 had around fifty of them. Linux on x86-64 took the chance to renumber cleanly when it launched between 2001 and 2003, shedding the old int 0x80 legacy. Since then numbers are only ever appended, never reused or reordered, because of Linus' prime directive: never break userspace.",
+    purpose: "To map a small, permanent set of numbers onto the kernel's services — one number per service, unchanged for decades.",
     responsibilities: [
       'Index rax to the __x64_sys_* handler and validate the range',
       'Preserve ABI: numbers are append-only across decades',
@@ -467,10 +467,10 @@ window.COMPONENTS = {
   },
   cpu: {
     name: 'CPU & Privilege Rings',
-    tagline: 'Ring 0 and ring 3: the hardware line between the kernel and everyone else',
-    description: 'x86 defines four privilege rings; Linux uses two: kernel in ring 0, everything else in ring 3. The current privilege level lives in the CS register, and privileged instructions (loading page tables, talking to devices) fault outside ring 0 — the mechanism that makes an OS possible at all.',
-    history: 'Protection rings come from Multics (1960s, eight rings); x86 got protected mode rings with the 286 (1982) and paging with the 386 (1985). Modern eras added NX (2004), SMEP/SMAP (2011-2012), and the 2018 speculative-execution reckoning (Spectre/Meltdown) that redrew the ring boundary in microcode.',
-    purpose: 'Enforce, in silicon, that user code cannot touch kernel memory, devices, or control registers.',
+    tagline: "Ring 0 and ring 3 — the line drawn in silicon between the kernel and everybody else",
+    description: "The processor itself knows there are two kinds of code. x86 chips define four privilege rings and Linux uses just two, running the kernel in ring 0 and everything else in ring 3. The current level lives in the CS register, and instructions that could take over the machine — loading page tables, talking directly to devices — simply fault if attempted from ring 3. That hardware refusal is what makes an operating system possible at all.",
+    history: "Protection rings come from Multics in the 1960s, which had eight of them. x86 got rings with protected mode on the 286 in 1982, and paging with the 386 in 1985. Later eras added the NX bit in 2004 and SMEP and SMAP around 2011-2012 — and then came 2018, when Spectre and Meltdown showed the CPU could be coaxed into leaking across the ring boundary through pure speculation, and the boundary had to be redrawn in microcode.",
+    purpose: "To enforce in silicon, rather than by good manners, that ordinary programs cannot read kernel memory or command hardware.",
     responsibilities: [
       'Track CPL and fault on privileged instructions from ring 3',
       'Walk page tables (MMU/TLB) with user/supervisor bits per page',
@@ -493,10 +493,10 @@ window.COMPONENTS = {
   },
   process: {
     name: 'Process (task_struct)',
-    tagline: 'A task_struct: address space, fd table, credentials — the unit of isolation',
-    description: 'Every process is a task_struct: its mm_struct (address space), files_struct (fd table), credentials, namespaces, and scheduling state. Our node process is PID 1337; in the container the server runs as PID 1 — same struct, different pid namespace view.',
-    history: 'fork() shipped in first-edition UNIX (1971), inherited conceptually from Project Genie. Linux generalized creation into clone() with shareable resources — the foundation for both threads and containers. Copy-on-write fork made process creation cheap enough to build shells and prefork servers on.',
-    purpose: 'Bundle everything the kernel must know to run, schedule, isolate, and account for one program.',
+    tagline: "One struct in the kernel that holds everything a running program is",
+    description: "To Linux, a process is a single C structure called task_struct, and everything about your program hangs off it: its address space in an mm_struct, its table of open files in a files_struct, its credentials, which namespaces it can see, and where it stands in the queue for the CPU. Our node process is PID 1337; inside the container the server runs as PID 1 — the same structure, an entirely different view of the world.",
+    history: "fork() appeared in first-edition UNIX in 1971, an idea inherited from Project Genie. Linux later generalized creation into clone(), where the caller chooses exactly which resources to share — the one mechanism that gives us both threads and containers. Copy-on-write made forking cheap enough that shells and prefork servers could be built on it without a second thought.",
+    purpose: "To gather in one place everything the kernel needs in order to run, schedule, isolate and account for a single program.",
     responsibilities: [
       'Own the address space (mm_struct) and fd table (files_struct)',
       'Carry credentials, rlimits, cgroup membership, and namespace pointers',
@@ -519,10 +519,10 @@ window.COMPONENTS = {
   },
   thread: {
     name: 'Thread',
-    tagline: 'In Linux, a thread is just a task that shares its mm — clone() with benefits',
-    description: 'Linux has no separate thread object: pthread_create calls clone(CLONE_VM|CLONE_FILES|CLONE_THREAD...), producing another task_struct sharing the address space and fd table. Node runs V8 on the main thread plus libuv workers; the kernel schedules each independently.',
-    history: 'LinuxThreads (Xavier Leroy, 1996) faked POSIX threads with processes and had famous signal-handling warts. NPTL (Drepper & Molnar, 2003, kernel 2.6) fixed the model with futexes and proper thread groups — a 100k-thread benchmark went from 15 minutes to 2 seconds.',
-    purpose: 'Concurrency within one address space: multiple schedulable contexts over shared memory.',
+    tagline: "In Linux there is no such thing as a thread — only a task that shares its memory",
+    description: "Other systems have a separate thread object; Linux does not. When you call pthread_create it calls clone() with flags that say share the address space, share the open files, join the same thread group — and out comes another ordinary task_struct with its own stack and registers. Node uses this to run V8 on the main thread and libuv's workers on others, and the kernel schedules every one of them independently.",
+    history: "The first attempt, LinuxThreads by Xavier Leroy in 1996, faked POSIX threads out of processes and had famously strange signal behavior. NPTL — from Ulrich Drepper and Ingo Molnar in 2003, landing in kernel 2.6 — fixed the model properly with futexes and real thread groups. A benchmark creating 100,000 threads went from about 15 minutes to 2 seconds.",
+    purpose: "To let several lines of execution run at once inside a single shared pool of memory.",
     responsibilities: [
       'Share mm, fds, and signal handlers with the thread group; keep own stack and registers',
       'Present one PID (tgid) to userspace while each thread has its own tid',
@@ -545,10 +545,10 @@ window.COMPONENTS = {
   },
   scheduler: {
     name: 'CPU Scheduler',
-    tagline: 'Decides, thousands of times a second, which task each core runs next',
-    description: 'The scheduler picks runnable tasks per-CPU using fair queuing: each task accrues virtual runtime and the one that has run least goes next. When our node process blocks in epoll_wait it leaves the runqueue entirely; a NIC interrupt later makes it runnable again.',
-    history: 'Linux went O(n) → O(1) (Ingo Molnar, 2002) → CFS (Molnar, 2007, kernel 2.6.23, provoked by Con Kolivas showing desktop fairness mattered) → EEVDF (Peter Zijlstra, kernel 6.6, 2023), which implements a 1995 Stoica/Abdel-Wahab virtual-deadline algorithm for better latency guarantees.',
-    purpose: 'Share finite CPUs among competing tasks with fairness, latency bounds, and cache-affinity awareness.',
+    tagline: "Decides, thousands of times a second, who gets a CPU next",
+    description: "There are always more things wanting to run than there are cores, and the scheduler is the referee. It keeps a queue per CPU and tracks how much time each task has already had — a measure called virtual runtime — then simply runs whoever has had the least. When our node process blocks waiting in epoll_wait it leaves the queue entirely and costs nothing at all; a packet arriving later, and the interrupt it causes, makes it runnable again.",
+    history: "Linux's scheduler has been rewritten repeatedly: an O(n) design gave way to Ingo Molnar's O(1) scheduler in 2002, then to CFS in 2007 in kernel 2.6.23 — Molnar again, after Con Kolivas made the case that desktop fairness genuinely mattered — and then to EEVDF in kernel 6.6 in 2023 from Peter Zijlstra, an implementation of a 1995 virtual-deadline algorithm by Stoica and Abdel-Wahab that offers better latency guarantees.",
+    purpose: "To share a handful of CPUs among everything that wants them, fairly, without letting anything wait too long or lose the cache it was warming.",
     responsibilities: [
       'Maintain per-CPU runqueues ordered by vruntime/virtual deadline',
       'Preempt on timer tick or wakeup of a more-deserving task',
@@ -571,10 +571,10 @@ window.COMPONENTS = {
   },
   fdtable: {
     name: 'File Descriptor Table',
-    tagline: 'Small integers with superpowers: fd 42 is your TCP connection',
-    description: "Per-process array mapping small ints to struct file: 0/1/2 are stdio, and when node calls socket() the kernel hands back the lowest free slot — our fd 42 pointing at socket:[TCP 51324→443]. Everything is a file: sockets, pipes, timers, epoll instances all live here.",
-    history: "File descriptors are original UNIX (1971) — Ritchie and Thompson's unifying abstraction. Linux keeps the table in files_struct with RCU-protected resizing; the 'everything is a file' doctrine later absorbed epoll (2002), signalfd, timerfd, and eventfd so all of them can be select()ed together.",
-    purpose: 'Give processes uniform, capability-like handles to every kernel I/O object.',
+    tagline: "Small numbers with enormous powers: fd 42 is a live connection to another continent",
+    description: "Every process has a little array that turns small integers into kernel objects. Slots 0, 1 and 2 are always standard input, output and error; when node calls socket() the kernel picks the lowest free slot and hands back that number — for us, fd 42, pointing at a struct socket for TCP 51324 to 443. UNIX's oldest idea is that everything is a file, so sockets, pipes, timers and epoll instances all live side by side in this one table.",
+    history: "File descriptors are original UNIX, from Ritchie and Thompson in 1971, and were the unifying abstraction that made the whole system feel coherent. Linux keeps the table in files_struct and resizes it under RCU so readers never block. The everything-is-a-file doctrine then kept expanding: epoll in 2002, followed by signalfd, timerfd and eventfd, so that even signals and timers could be waited on exactly like sockets.",
+    purpose: "To give programs one uniform kind of handle for every kernel object they might read from or write to.",
     responsibilities: [
       'Allocate lowest-available fd on open/socket/accept/epoll_create',
       'Map fd to struct file to inode/socket on every read/write/sendto',
@@ -597,10 +597,10 @@ window.COMPONENTS = {
   },
   memmap: {
     name: 'Virtual Memory Map',
-    tagline: 'Every process gets 128 TiB of make-believe; page tables make it real',
-    description: 'Each process sees a private virtual address space — text, heap, mmapped libraries, stacks — described by VMAs in mm_struct, with the kernel mapped (but ring-0-only) in the upper half. Physical pages materialize lazily on fault; the TLB caches translations.',
-    history: 'Paged virtual memory debuted on the Atlas (Manchester, 1962). x86-64 Linux splits the canonical space at 128 TiB user / 128 TiB kernel (4-level tables; 5-level since 2017 extends further). VMA bookkeeping moved from red-black tree to maple tree in kernel 6.1 (2022). Meltdown (2018) forced KPTI to unmap most of the kernel from user page tables.',
-    purpose: 'Isolation and abstraction: every process believes it owns memory, and the kernel arbitrates the physical truth.',
+    tagline: "Every process is handed 128 TiB of make-believe; the page tables decide what is real",
+    description: "Each program gets its own private map of memory — its code, its heap, the libraries it mapped in, its stacks — described by a list of regions the kernel calls VMAs and keeps in mm_struct. The kernel itself is mapped into the upper half of every map, but marked so that only ring 0 may look at it. Almost none of it is real when you ask for it: physical pages appear only when you first touch an address and trigger a page fault, and a small CPU cache called the TLB remembers translations so it need not walk the tables twice.",
+    history: "Paged virtual memory first ran on the Atlas at Manchester in 1962. On x86-64, Linux splits the canonical space down the middle — 128 TiB for the process, 128 TiB for the kernel — using four levels of page tables, or five since 2017 for those who need more. The bookkeeping of memory regions moved from a red-black tree to a maple tree in kernel 6.1 in 2022. And Meltdown in 2018 forced KPTI, which unmaps nearly all of the kernel while user code is running.",
+    purpose: "To let every process believe it owns the whole machine's memory, while the kernel quietly arbitrates who actually gets which physical page.",
     responsibilities: [
       'Track VMAs: ranges, permissions (rwx), backing (anon or file)',
       'Handle page faults: allocate, COW-copy, or swap in on demand',
@@ -623,10 +623,10 @@ window.COMPONENTS = {
   },
   socketlayer: {
     name: 'BSD Socket Layer',
-    tagline: 'The 1983 API every network program still speaks: socket, connect, send, recv',
-    description: "net/socket.c is the protocol-agnostic front door: sys_socket allocates a struct socket bound to an fd, then dispatches by family and type — AF_INET + SOCK_STREAM finds TCP via inet_create. Forty years of programs, one API.",
-    history: 'The socket API shipped in 4.2BSD (1983), designed by Bill Joy and the CSRG at Berkeley under DARPA funding to give TCP/IP a programming interface. It was so successful that Windows adopted it as Winsock (1992) and POSIX standardized it — the rare API that outlived every OS it started on.',
-    purpose: 'Decouple applications from protocol internals: one verb set for TCP, UDP, UNIX, netlink, and beyond.',
+    tagline: "The 1983 API that every networked program on earth still speaks",
+    description: "This is the front desk of the kernel's network stack, and it deliberately knows nothing about protocols. When you call socket(), net/socket.c allocates a generic struct socket, ties it to a file descriptor, and then reads what you asked for — AF_INET plus SOCK_STREAM — to decide who should take over, which for us means inet_create handing the connection to TCP. Forty years of programs, one small set of verbs.",
+    history: "The socket API arrived in 4.2BSD in 1983, designed by Bill Joy and the CSRG at Berkeley under DARPA funding to give the new TCP/IP a programming interface. It was so successful that Microsoft adopted it as Winsock in 1992 and POSIX standardized it — a rare API that comfortably outlived every operating system it was written for.",
+    purpose: "To keep applications completely ignorant of protocol internals: the same handful of calls work for TCP, UDP, UNIX sockets, netlink and everything invented since.",
     responsibilities: [
       'Implement socket/bind/listen/accept/connect/sendmsg/recvmsg entry points',
       'Map family+type+protocol to the right proto_ops (inet_stream_ops for us)',
@@ -649,10 +649,10 @@ window.COMPONENTS = {
   },
   socketobj: {
     name: 'Socket Object (struct sock)',
-    tagline: 'The kernel-side connection: queues, buffers, timers, and state for fd 42',
-    description: 'Beneath the fd sits struct sock — for TCP, the full tcp_sock embedding congestion state, sequence numbers, and RTT estimates — with sk_receive_queue and sk_write_queue holding sk_buffs in flight. This object is what ss -tmi prints and what lives on after close() in TIME_WAIT.',
-    history: 'The layered sock hierarchy (sock → inet_sock → inet_connection_sock → tcp_sock) evolved through the 2.x series as Linux networking was rewritten (Alan Cox, David Miller era). Autotuned socket buffers arrived in 2.4/2.6 (Semke et al. research, 1998), replacing fixed 64KB defaults.',
-    purpose: 'Hold all per-connection kernel state: what has been sent, acked, received, buffered, and negotiated.',
+    tagline: "Everything the kernel remembers about your connection, and it remembers a great deal",
+    description: "Behind the file descriptor sits struct sock — for TCP, the much larger tcp_sock, carrying sequence numbers, congestion state and round-trip time estimates. Two queues hang off it: sk_receive_queue holding data that has arrived and not yet been read, and sk_write_queue holding data you have written that has not yet been acknowledged, which is where backpressure actually comes from. This object is what ss -tmi prints, and it is what lingers in TIME_WAIT long after you have called close() and moved on.",
+    history: "The layered hierarchy of sock, then inet_sock, then inet_connection_sock, then tcp_sock grew through the 2.x series as Linux networking was rewritten under Alan Cox and later David Miller. Automatically sized socket buffers arrived in 2.4 and 2.6, drawn from 1998 research by Semke and colleagues, replacing a flat 64KB default that had aged badly.",
+    purpose: "To hold every piece of per-connection state — sent, acked, received, buffered, negotiated — in one place the whole stack can consult.",
     responsibilities: [
       'Buffer inbound data (sk_receive_queue) until the app reads it',
       'Buffer outbound data (sk_write_queue) until acked — backpressure lives here',
@@ -675,10 +675,10 @@ window.COMPONENTS = {
   },
   tcp: {
     name: 'TCP Stack',
-    tagline: 'Reliable, ordered byte streams over an unreliable network',
-    description: 'The kernel TCP implementation: handshake state machine, sequence/ack bookkeeping, retransmission timers, and congestion control. Our SYN with ISN 1128394821 leaves tcp_v4_connect; everything after — loss recovery, pacing, windows — happens here without the application ever knowing.',
-    history: 'Cerf & Kahn described TCP in 1974 (RFC 675); it split into TCP/IP in 1978 and was standardized as RFC 793 (Postel, 1981), now RFC 9293 (2022). The 1986 congestion collapse led to Van Jacobson slow start/AIMD (1988). Linux defaulted to CUBIC in 2006; Google published BBR in 2016.',
-    purpose: 'Turn best-effort packets into a reliable, ordered, congestion-controlled byte stream.',
+    tagline: "Turns a network that loses, reorders and duplicates things into a tidy stream of bytes",
+    description: "IP will happily drop your packet, deliver it twice, or hand it over out of order; TCP is the code that hides every bit of that. It runs a handshake to open the connection, numbers each byte so the far end can put them back in order, sets timers to notice when something never arrived, and continuously estimates how fast it may send without collapsing the network. Our opening SYN, carrying the initial sequence number 1128394821, leaves from tcp_v4_connect — and everything after it happens without the application noticing a thing.",
+    history: "Vint Cerf and Bob Kahn described TCP in 1974 in RFC 675; it split into separate TCP and IP layers in 1978 and was standardized by Jon Postel as RFC 793 in 1981, now updated as RFC 9293 in 2022. When the internet suffered congestion collapse in 1986, Van Jacobson's 1988 slow start and AIMD work rescued it. Linux switched its default congestion control to CUBIC in 2006, and Google published BBR in 2016.",
+    purpose: "To take a best-effort, unreliable network and give you something you can actually write a program against: an ordered, reliable, well-mannered stream of bytes.",
     responsibilities: [
       'Run the state machine: LISTEN, SYN_SENT, ESTABLISHED, FIN_WAIT, TIME_WAIT...',
       'Segment the stream, assign sequence numbers, ack received data',
@@ -703,10 +703,10 @@ window.COMPONENTS = {
   },
   udp: {
     name: 'UDP',
-    tagline: 'Eight bytes of header and no promises — which is exactly why DNS and QUIC use it',
-    description: 'UDP adds only ports and an optional checksum to IP: no handshake, no ordering, no retransmission. Our DNS query to 1.1.1.1 rides UDP because one small request/response pair needs none of TCP’s machinery — and QUIC rebuilt reliability on top of it in userspace.',
-    history: 'David Reed specified UDP in RFC 768 (August 1980), preserving end-to-end simplicity for applications that wanted datagrams, not streams. Decades later that minimalism made it the substrate for QUIC (Google 2012, RFC 9000 in 2021) precisely because middleboxes ossified TCP.',
-    purpose: 'Deliver individual datagrams with port-level demultiplexing and nothing else.',
+    tagline: "Eight bytes of header and zero promises — which is exactly why DNS and QUIC chose it",
+    description: "UDP is what remains of a transport protocol once you remove everything optional. It adds port numbers and an optional checksum on top of IP, and nothing else: no handshake, no ordering, no retransmission, no idea whether anything arrived. Our DNS question to 1.1.1.1 travels this way because one small question and one small answer need none of TCP's machinery — and QUIC later rebuilt all that machinery on top of UDP, in userspace, where it could keep evolving.",
+    history: "David Reed specified UDP in RFC 768 in August 1980, preserving end-to-end simplicity for applications that wanted datagrams rather than streams. Decades later that same minimalism made it the foundation for QUIC — started at Google in 2012 and standardized as RFC 9000 in 2021 — precisely because middleboxes had ossified TCP so thoroughly that nothing new could be added to it.",
+    purpose: "To deliver one message to one port on one host, and then get out of the way.",
     responsibilities: [
       'Attach src/dst ports and checksum; hand to IP',
       'Demultiplex inbound datagrams to bound sockets',
@@ -729,10 +729,10 @@ window.COMPONENTS = {
   },
   ip: {
     name: 'IP Layer',
-    tagline: 'Addressing and best-effort forwarding: every hop decrements TTL and hopes',
-    description: 'The IP layer stamps each packet with source 192.168.1.23 and destination 104.18.32.7, sets TTL 64, and forwards hop by hop with no delivery guarantee. Fragmentation, ICMP errors, and the DF bit live here; so does the header checksum recomputed at every router.',
-    history: 'IPv4 was standardized in RFC 791 (1981) after the 1978 TCP/IP split put addressing and delivery below the reliability layer. Address exhaustion drove CIDR (1993), NAT (1994), and IPv6 (RFC 2460 in 1998, now RFC 8200) — with 32 bits proving to be the most consequential design constraint in networking history.',
-    purpose: 'Global addressing plus stateless, best-effort, hop-by-hop packet delivery.',
+    tagline: "Addresses on the envelope, and a hop counter that runs out if it gets lost",
+    description: "IP is the layer that gives every machine an address and every packet a destination. It writes our source 192.168.1.23 and destination 104.18.32.7 into the header, sets a TTL of 64 — a countdown decremented by every router, so a lost packet eventually dies rather than circling forever — and passes it onward with no guarantee whatsoever that it arrives. Fragmentation for links too small to carry it, the DF bit that forbids it, the ICMP messages that report trouble, and a header checksum recomputed at every hop all live here.",
+    history: "IPv4 was standardized as RFC 791 in 1981, after the 1978 split placed addressing and delivery below reliability. Running out of addresses then shaped everything that followed: CIDR in 1993, NAT in 1994, and IPv6 in RFC 2460 in 1998, now RFC 8200. Choosing 32 bits for an address turned out to be the most consequential design constraint in the history of networking.",
+    purpose: "To give the entire world one addressing scheme and one simple rule: pass this toward that address, and do your best.",
     responsibilities: [
       'Build/validate headers: addresses, TTL, protocol, checksum, DF/fragment fields',
       'Decrement TTL and emit ICMP Time Exceeded at zero (what traceroute exploits)',
@@ -755,10 +755,10 @@ window.COMPONENTS = {
   },
   routing: {
     name: 'Routing Table (FIB)',
-    tagline: 'Longest-prefix match: the one lookup that decides where every packet goes',
-    description: 'The Forwarding Information Base answers one question per packet: which next hop and interface for this destination? 104.18.32.7 matches nothing local on our laptop, so the default route 0.0.0.0/0 via 192.168.1.1 wins — longest prefix always, default as the zero-length fallback.',
-    history: 'Linux stores IPv4 routes in an LC-trie (level-compressed trie, from a 1999 Nilsson & Karlsson paper) — merged in 2005 and made the sole implementation in 2.6.39 — delivering O(log n)-ish lookups over what is a million-route table in BGP routers. Policy routing (ip rule, multiple tables) arrived with the 2.2-era rewrite.',
-    purpose: 'Map every destination address to a next hop and egress interface in nanoseconds.',
+    tagline: "One lookup per packet, and the most specific answer always wins",
+    description: "The Forwarding Information Base answers a single question, several million times a second: for this destination, which way out, and who is next? Our laptop finds nothing local matching 104.18.32.7, so the catch-all default route — 0.0.0.0/0 via 192.168.1.1, the home router — wins by being the only match at all. The rule is always longest prefix first: a more specific route beats a vaguer one, and the default route is simply the vaguest possible.",
+    history: "Linux keeps IPv4 routes in an LC-trie, the level-compressed trie from a 1999 paper by Nilsson and Karlsson, merged in 2005 and made the sole implementation in 2.6.39 — which keeps lookups fast even in core routers whose tables run to a million routes. Policy routing, with ip rule and multiple tables, arrived earlier in the 2.2-era rewrite.",
+    purpose: "To turn any destination address in the world into a next hop and an outgoing interface, in nanoseconds.",
     responsibilities: [
       'Longest-prefix match across connected, static, and learned routes',
       'Select source address and resolve the next hop for new flows',
@@ -781,10 +781,10 @@ window.COMPONENTS = {
   },
   arp: {
     name: 'ARP / Neighbor Cache',
-    tagline: 'Bridges L3 to L2: "who has 192.168.1.1? Tell 192.168.1.23"',
-    description: 'Before the first frame can leave, the kernel must map the next-hop IP 192.168.1.1 to MAC a4:91:b1:0c:44:e2. ARP broadcasts the question; the neighbor cache stores the answer with a state machine (REACHABLE, STALE, PROBE) so it is asked rarely.',
-    history: 'David Plummer defined ARP in RFC 826 (November 1982) as Ethernet met IP. IPv6 replaced it with Neighbor Discovery (NDP over ICMPv6, RFC 4861). Its trusting design — believe any reply — made ARP spoofing the canonical LAN attack, countered today by switch-level dynamic ARP inspection.',
-    purpose: 'Resolve on-link IP addresses to hardware addresses, and cache the answers.',
+    tagline: "Shouting into the room: who has 192.168.1.1? — and remembering the answer",
+    description: "IP addresses are for the whole world; Ethernet only understands hardware addresses burned into each card. So before the very first frame can leave, the kernel must find out which card owns the next hop, 192.168.1.1. ARP does it by broadcasting the question to everyone on the local network and waiting for the one machine that answers — a4:91:b1:0c:44:e2 — then files it in the neighbor cache with a small state machine (REACHABLE, STALE, DELAY, PROBE) so it rarely has to ask again.",
+    history: "David Plummer defined ARP in RFC 826 in November 1982, at the moment Ethernet met IP. IPv6 later replaced it with Neighbor Discovery, carried over ICMPv6 in RFC 4861. ARP's trusting nature — it believes any reply it hears — made ARP spoofing the classic attack on a local network, which switches now counter with dynamic ARP inspection.",
+    purpose: "To connect the world of IP addresses to the world of hardware addresses, and to remember the mapping so the question is asked rarely.",
     responsibilities: [
       'Broadcast who-has requests; process replies into the neighbor table',
       'Age entries through REACHABLE → STALE → DELAY → PROBE states',
@@ -807,10 +807,10 @@ window.COMPONENTS = {
   },
   netns: {
     name: 'Network Namespace',
-    tagline: 'A complete private network stack per namespace — the trick containers are made of',
-    description: 'A network namespace is a full copy of the stack: own interfaces, routes, ARP cache, iptables, conntrack, and /proc/net. A process sees only its namespace’s network. Docker gives each container one; veth pairs and bridges wire them back together.',
-    history: 'Network namespaces were merged around kernel 2.6.24 (2008), driven by Eric Biederman and the OpenVZ lineage of container work. They joined PID, mount, UTS, IPC, and user namespaces as the isolation primitives that LXC (2008) and then Docker (2013) assembled into "containers" — which are not a kernel object at all.',
-    purpose: 'Give groups of processes fully independent network stacks on one kernel.',
+    tagline: "A whole private internet stack in a box — the trick containers are built from",
+    description: "A network namespace is a complete second copy of the kernel's networking: its own interfaces, its own routing table, its own ARP cache, its own iptables rules, its own connection tracking, its own /proc/net. A process inside one can see nothing else, and believes that is all there is. Docker hands each container a namespace of its own, then wires them back to the world with virtual cables and a software switch.",
+    history: "Network namespaces were merged around kernel 2.6.24 in 2008, driven by Eric Biederman and building on the OpenVZ lineage of container work. They joined the PID, mount, UTS, IPC and user namespaces as the isolation primitives that LXC in 2008, and then Docker in 2013, assembled into what we now call a container — which, notably, is not a kernel object at all.",
+    purpose: "To give a group of processes a completely independent network stack while sharing one kernel and one machine.",
     responsibilities: [
       'Scope interfaces, addresses, routes, and sockets to the namespace',
       'Maintain per-ns netfilter rules, conntrack tables, and sysctls',
@@ -833,10 +833,10 @@ window.COMPONENTS = {
   },
   netfilter: {
     name: 'Netfilter Hooks',
-    tagline: 'Five checkpoints in the packet path where the kernel lets you say no',
-    description: 'Netfilter is a set of hook points woven into the IP path — PREROUTING, LOCAL_IN, FORWARD, LOCAL_OUT, POSTROUTING — where registered callbacks can accept, drop, or mangle every packet. iptables, nftables, and conntrack are all just customers of these hooks.',
-    history: 'Rusty Russell started netfilter in 1998, and it shipped with kernel 2.4 (January 2001), replacing ipchains (2.2), which had replaced ipfwadm (2.0). The design insight — separate the hook infrastructure from the rule engine — is why nftables (2014) could replace iptables without touching the hooks.',
-    purpose: 'Provide well-defined interception points so firewalling, NAT, and mangling compose without hacking the stack.',
+    tagline: "Five checkpoints along the packet's path where the kernel lets you interrupt",
+    description: "Netfilter is not a firewall — it is the set of hooks a firewall plugs into. Five points are woven into the packet's journey through the IP layer: PREROUTING as it arrives, LOCAL_IN as it is delivered here, FORWARD as it passes through, LOCAL_OUT as it is created, and POSTROUTING as it leaves. Code registered at any of them can accept a packet, drop it, hand it to userspace, or rewrite it — and iptables, nftables and connection tracking are all simply customers of these five hooks.",
+    history: "Rusty Russell began netfilter in 1998 and it shipped with kernel 2.4 in January 2001, replacing ipchains from 2.2, which had replaced ipfwadm from 2.0. Its founding insight — keep the hook infrastructure separate from the rule engine — is exactly why nftables could replace iptables in 2014 without disturbing the hooks at all.",
+    purpose: "To offer a few well-chosen interception points, so firewalling, address translation and packet mangling can coexist without anyone patching the network stack itself.",
     responsibilities: [
       'Invoke registered hook functions in priority order at each of the 5 points',
       'Honor verdicts: ACCEPT, DROP, QUEUE (to userspace), STOLEN',
@@ -859,10 +859,10 @@ window.COMPONENTS = {
   },
   iptables: {
     name: 'iptables / nftables',
-    tagline: 'The rule engine on the hooks: tables, chains, and a verdict for every packet',
-    description: 'iptables organizes rules into tables (filter, nat, mangle, raw) and chains mapped onto netfilter hooks; each packet walks the rules until one matches with a terminal verdict. Docker programs the nat table’s DOCKER chain; your distro’s firewall programs filter.',
-    history: 'iptables shipped with kernel 2.4 (2001), authored by Rusty Russell. Its per-rule kernel structures aged badly at scale, so Patrick McHardy’s nftables (kernel 3.13, 2014) replaced the engine with a small in-kernel VM; modern distros run iptables-nft, translating old syntax onto the new engine. Kubernetes moved kube-proxy toward IPVS/nftables for the same scaling reasons.',
-    purpose: 'Express firewall and NAT policy as ordered, stateful rule chains evaluated in-kernel.',
+    tagline: "The rulebook bolted onto the hooks: chains of rules, one verdict per packet",
+    description: "iptables is the rule engine that decides what actually happens at each netfilter hook. Rules are grouped into tables by purpose — filter for allow and deny, nat for rewriting addresses, mangle and raw for the more exotic cases — and each table hangs chains off particular hooks. A packet walks its chain rule by rule until one matches and delivers a final verdict. Docker writes its own DOCKER chain into the nat table; your distribution's firewall writes into filter.",
+    history: "iptables shipped with kernel 2.4 in 2001, written by Rusty Russell. Its per-rule kernel structures aged badly at scale, so Patrick McHardy's nftables replaced the engine with a small in-kernel virtual machine in kernel 3.13 in 2014; modern distributions run iptables-nft, which quietly translates the familiar old syntax onto the new engine. Kubernetes hit the same wall from the other side and moved kube-proxy toward IPVS and nftables for exactly the same scaling reasons.",
+    purpose: "To let you state firewall and address-translation policy as ordered, stateful rules that the kernel then applies to every packet.",
     responsibilities: [
       'Evaluate rules per chain with first-match-wins terminal verdicts',
       'Provide jump/return semantics for user-defined chains (DOCKER, KUBE-SERVICES)',
@@ -886,10 +886,10 @@ window.COMPONENTS = {
   },
   conntrack: {
     name: 'Connection Tracking',
-    tagline: 'The flow table that lets one NAT decision follow a connection for life',
-    description: 'Conntrack records every flow as a tuple pair (original and reply direction) with state NEW, ESTABLISHED, or RELATED. NAT rules are consulted only for the first packet; conntrack replays the translation for every subsequent packet in both directions — statefulness as a service.',
-    history: 'Connection tracking arrived with netfilter in kernel 2.4 (2001), making Linux a stateful firewall. Its helpers (FTP, SIP) parse protocols to spot related flows. The "nf_conntrack: table full, dropping packet" message has since become one of the most-Googled kernel log lines in operations history.',
-    purpose: 'Give the kernel per-flow memory so firewalling and NAT can act on connections, not just packets.',
+    tagline: "The router's address book — how replies ever find their way home",
+    description: "A firewall that judged each packet alone would be nearly useless: it could never tell a reply you asked for from a stranger knocking. Connection tracking fixes that by remembering every conversation as a pair of tuples — how the packet went out, and what its reply will look like coming back — and labeling the flow NEW, ESTABLISHED or RELATED. It is also what makes NAT possible: the translation rules are consulted only for the very first packet, and conntrack replays that same decision for every packet afterwards, in both directions, for the life of the connection.",
+    history: "Connection tracking arrived alongside netfilter in kernel 2.4 in 2001, and it is what made Linux a stateful firewall. Its helpers understand protocols like FTP and SIP well enough to spot the extra connections they spawn. Its failure message — nf_conntrack: table full, dropping packet — has since become one of the most-Googled kernel log lines in the history of operations.",
+    purpose: "To give the kernel a memory, so rules can talk about conversations rather than isolated packets.",
     responsibilities: [
       'Hash and track tuples for TCP/UDP/ICMP flows in both directions',
       'Classify packets: NEW, ESTABLISHED, RELATED, INVALID',
@@ -912,10 +912,10 @@ window.COMPONENTS = {
   },
   qdisc: {
     name: 'Queueing Discipline',
-    tagline: 'The egress buffer with opinions: fq_codel decides what waits and what drops',
-    description: 'Between the IP stack and the driver sits the qdisc — the traffic-control layer that queues, schedules, paces, and drops. Modern defaults run fq_codel (fair queues + controlled delay) or fq (per-flow pacing for BBR); this is where bufferbloat was fought and won.',
-    history: 'Linux traffic control dates to the late-90s Alexey Kuznetsov era (CBQ, pfifo_fast). Jim Gettys named bufferbloat in 2010; Kathleen Nichols and Van Jacobson answered with CoDel (2012), and Eric Dumazet’s fq_codel and sch_fq (2013) plus BQL (2011) rebuilt Linux egress. systemd made fq_codel the default qdisc in 2017.',
-    purpose: 'Manage the egress queue so throughput stays high while queueing delay stays low.',
+    tagline: "The queue with opinions: decides what waits, what goes next, and what gets thrown away",
+    description: "Between the IP stack and the driver sits a queue, and it is far cleverer than the line at a shop. The modern default, fq_codel, keeps a separate little queue per flow so one bulk upload cannot bury your tiny SYN, and deliberately drops or ECN-marks packets that have been waiting too long — because a permanently full buffer adds delay without adding throughput. Its sibling fq does per-flow pacing, spacing packets out smoothly for congestion controls like BBR. This is the exact spot where the bufferbloat war was fought and won.",
+    history: "Linux traffic control goes back to Alexey Kuznetsov's work in the late 1990s, with CBQ and pfifo_fast. Jim Gettys named bufferbloat in 2010; Kathleen Nichols and Van Jacobson answered with CoDel in 2012, and Eric Dumazet's fq_codel and sch_fq in 2013 — together with byte queue limits in 2011 — rebuilt the Linux egress path around it. systemd made fq_codel the default qdisc in 2017.",
+    purpose: "To keep the link busy without letting the queue in front of it swell into seconds of pointless delay.",
     responsibilities: [
       'Enqueue packets from the stack; dequeue toward the driver at link/pacing rate',
       'Isolate flows (fq) so one bulk upload cannot starve your SYN',
@@ -938,10 +938,10 @@ window.COMPONENTS = {
   },
   driver: {
     name: 'NIC Driver',
-    tagline: 'The kernel module that speaks one specific silicon dialect',
-    description: 'The driver (e1000e, igb, mlx5_core...) implements net_device_ops: ndo_start_xmit posts our frame’s descriptor to the TX ring, ethtool ops expose counters and offloads, and its NAPI poll function harvests completions. It owns the register-level conversation with the hardware.',
-    history: 'Donald Becker’s NE2000 and Tulip drivers (early 1990s) bootstrapped Linux networking hardware support. The modern split — generic core in net/core, silicon specifics in drivers/net/ethernet/<vendor> — plus NAPI (2001) and BQL (2011) turned drivers into thin, fast descriptor shovels.',
-    purpose: 'Translate the kernel’s abstract net_device interface into one chipset’s registers, rings, and quirks.',
+    tagline: "The kernel module that speaks one particular chip's private language",
+    description: "Every network card is different, and the driver — e1000e, igb, mlx5_core and hundreds of others — is the translator. It fills in a fixed set of functions the kernel calls: ndo_start_xmit to hand a frame to the hardware, a NAPI poll function to gather up the frames that have arrived, ethtool operations to report counters and toggle offloads. Underneath those tidy names it is having the register-level conversation with the silicon, writing descriptors, ringing doorbells, and knowing every one of that chip's quirks.",
+    history: "Donald Becker's NE2000 and Tulip drivers in the early 1990s bootstrapped Linux's support for network hardware. The modern split — generic code in net/core, silicon-specific code under drivers/net/ethernet per vendor — together with NAPI in 2001 and BQL in 2011, turned drivers into thin, fast shovels of descriptors rather than sprawling stacks of their own.",
+    purpose: "To turn the kernel's one abstract idea of a network interface into the specific registers, rings and rituals of a single chipset.",
     responsibilities: [
       'Map sk_buffs to DMA descriptors and ring doorbell registers on transmit',
       'Allocate RX buffers and replenish rings as NAPI consumes them',
@@ -964,10 +964,10 @@ window.COMPONENTS = {
   },
   ringbuffer: {
     name: 'RX/TX Ring Buffers',
-    tagline: 'Circular descriptor arrays: the shared to-do lists of CPU and NIC',
-    description: 'The rings are circular arrays of descriptors in RAM — each pointing at a packet buffer — with producer/consumer indices advanced by driver and NIC respectively. TX: driver fills, NIC drains. RX: NIC fills, NAPI drains. When RX fills faster than the CPU drains, packets die here, counted but unmourned.',
-    history: 'Descriptor rings became standard NIC architecture in the 1990s (DEC Tulip era) as PIO gave way to bus-mastering DMA. Ring sizing became a first-class tuning knob as 10/40/100GbE arrived; BQL (2011) capped in-flight TX bytes so rings stopped being hidden bufferbloat.',
-    purpose: 'Decouple the CPU and NIC clock domains with lock-free shared queues of packet work.',
+    tagline: "A circular to-do list that the CPU and the network card share",
+    description: "The CPU and the network card run at completely different speeds, so they talk through rings: circular arrays of small descriptors, each pointing at a buffer of packet data, with two indices marking how far one side has filled and how far the other has drained. On transmit the driver fills and the NIC drains; on receive the NIC fills and NAPI drains. When packets arrive faster than the kernel can empty the ring, they die right here — counted precisely as rx_missed or no_buffer, and mourned by nobody.",
+    history: "Descriptor rings became the standard shape of a network card in the 1990s, in the DEC Tulip era, as programmed I/O gave way to bus-mastering DMA. Ring sizing became a first-class tuning knob as 10, 40 and 100GbE arrived, and BQL in 2011 finally capped how many bytes could sit in flight, so transmit rings stopped being a hidden reservoir of bufferbloat.",
+    purpose: "To let two independent pieces of hardware hand work to each other continuously, without either one ever waiting for the other.",
     responsibilities: [
       'Hold TX descriptors until the NIC DMAs and completes them',
       'Hold ready RX buffers for the NIC to fill with arriving frames',
@@ -990,10 +990,10 @@ window.COMPONENTS = {
   },
   dma: {
     name: 'DMA Engine',
-    tagline: 'The NIC reads and writes RAM directly — the CPU only handles pointers',
-    description: 'Direct Memory Access lets the NIC copy frames to and from system RAM without the CPU touching a byte: the driver DMA-maps buffer addresses into descriptors, the NIC bus-masters the transfer over PCIe, and only completion needs CPU attention. Data moves; the CPU orchestrates.',
-    history: 'DMA predates networking (1960s mainframe channel I/O); PCI bus mastering made it universal for NICs in the 1990s. The IOMMU era (Intel VT-d, 2007+) added address translation and isolation so devices cannot scribble on arbitrary RAM — closing the door DMA had left open (see: Thunderbolt attacks).',
-    purpose: 'Move packet payloads between device and memory at bus speed with near-zero CPU cost.',
+    tagline: "The card moves the memory itself; the CPU only says where",
+    description: "Direct Memory Access is the arrangement that lets the network card read and write system RAM on its own. The driver maps a buffer's address into a descriptor so the device can see it, the card takes over the PCIe bus and moves the bytes itself, and the CPU is bothered only once the transfer is finished. Data moves; the CPU merely conducts.",
+    history: "DMA long predates networking — it comes from 1960s mainframe channel I/O — and PCI bus mastering made it universal for network cards in the 1990s. The IOMMU era, with Intel VT-d from 2007 onward, added address translation and isolation so a device can no longer scribble anywhere in RAM it fancies, closing a door DMA had left wide open. See also: the Thunderbolt attacks.",
+    purpose: "To move packet data between device and memory at full bus speed while costing the CPU almost nothing.",
     responsibilities: [
       'Translate buffer addresses via dma_map_single/page for device visibility',
       'Bus-master transfers over PCIe per descriptor instructions',
@@ -1016,10 +1016,10 @@ window.COMPONENTS = {
   },
   irq: {
     name: 'Hardware Interrupt (IRQ)',
-    tagline: 'The NIC taps the CPU on the shoulder: "descriptors await"',
-    description: 'When frames complete, the NIC raises an MSI-X interrupt; the CPU suspends whatever ran, enters the IRQ handler, which does almost nothing — acknowledge, schedule NAPI, disable further RX interrupts — and returns in microseconds. The real work is deferred; interrupts are for waking up, not working.',
-    history: 'Interrupts date to the UNIVAC 1103 (1953). PCI line interrupts (shared, level-triggered) gave way to MSI/MSI-X (2003-era), giving NICs per-queue vectors steerable to specific CPUs — the foundation of multi-core packet processing and the irqbalance daemon’s reason to exist.',
-    purpose: 'Deliver asynchronous hardware events with minimal latency and minimal time in interrupt context.',
+    tagline: "The card taps the CPU on the shoulder — and says as little as it possibly can",
+    description: "When frames have finished arriving, the network card raises an MSI-X interrupt and the CPU drops whatever it was doing to run the handler. That handler is deliberately tiny: acknowledge the device, ask the kernel to schedule the real work for later via NAPI, switch off further receive interrupts so a flood cannot drown the machine, and return — all within microseconds. Interrupts are for waking up, not for working.",
+    history: "Interrupts date to the UNIVAC 1103 in 1953. Shared, level-triggered PCI line interrupts gave way to MSI and MSI-X around 2003, which gave each queue on a card its own vector that could be steered at a particular CPU — the foundation of multi-core packet processing, and the entire reason the irqbalance daemon exists.",
+    purpose: "To deliver news from hardware with the lowest possible latency and the shortest possible stay in the one context where nothing else can run.",
     responsibilities: [
       'Vector the CPU to the registered handler on device signal',
       'Acknowledge the device and mask further interrupts for the queue',
@@ -1042,10 +1042,10 @@ window.COMPONENTS = {
   },
   softirq: {
     name: 'SoftIRQ',
-    tagline: 'Deferred interrupt work: NET_RX runs the stack with interrupts back on',
-    description: 'SoftIRQs are the kernel’s bottom halves: the IRQ handler raises NET_RX_SOFTIRQ and returns; do_softirq later runs NAPI polls, protocol processing, and socket delivery in a context that is interruptible and per-CPU. Overflow work falls to the ksoftirqd/N kernel threads you see in top.',
-    history: 'The top/bottom-half split is classic UNIX; Linux formalized softirqs in the 2.3/2.4 rewrite (1999-2001) replacing the old bottom halves with per-CPU, parallel-friendly deferred contexts. NET_RX/NET_TX have been networking’s home ever since; ksoftirqd caps how much they can starve normal tasks.',
-    purpose: 'Do the heavy per-packet work outside interrupt context, batched, per-CPU, and preemptible-ish.',
+    tagline: "The work the interrupt handler was too polite to do",
+    description: "The interrupt handler does almost nothing and returns; the real work is deferred to a softirq, the kernel's bottom half. Moments later, with interrupts enabled again, do_softirq runs NET_RX: it polls the card, carries packets up through IP and TCP, and delivers them into socket queues, all in a per-CPU context that can be interrupted. When there is more work than a softirq is allowed to finish, it is handed to the ksoftirqd threads you can see sitting in top.",
+    history: "Splitting interrupt work into a fast top half and a deferred bottom half is classic UNIX. Linux formalized softirqs during the 2.3 and 2.4 rewrite between 1999 and 2001, replacing the old bottom halves with per-CPU contexts that could run in parallel. Networking has lived in NET_RX and NET_TX ever since, and ksoftirqd exists precisely to cap how badly they can starve userspace.",
+    purpose: "To do the heavy per-packet work outside interrupt context — batched, per-CPU and preemptible-ish — so ordinary programs still get a turn.",
     responsibilities: [
       'Run NET_RX/NET_TX processing after hard IRQs return',
       'Execute NAPI poll loops within budget limits',
@@ -1068,10 +1068,10 @@ window.COMPONENTS = {
   },
   napi: {
     name: 'NAPI',
-    tagline: 'Interrupt when idle, poll when busy — the 2001 fix for interrupt livelock',
-    description: 'NAPI adaptively switches the RX path from interrupt-driven to polling: first packet interrupts, then the driver’s poll() harvests up to weight (64) packets per pass with interrupts masked, under a global budget (300) per softirq round. Under load, per-packet interrupt cost simply disappears.',
-    history: 'NAPI came from Jamal Hadi Salim, Robert Olsson, and Alexey Kuznetsov ("Beyond Softnet", USENIX 2001; mainlined in 2.4.20/2.5) to cure interrupt livelock — gigabit-era machines dying at 100% CPU handling interrupts while doing zero useful work. GRO later stacked on top, merging packets during the poll.',
-    purpose: 'Keep per-packet overhead near zero at high rates while preserving low latency when idle.',
+    tagline: "Interrupt when quiet, poll when busy — the 2001 cure for a machine drowning in its own interrupts",
+    description: "At high packet rates, taking an interrupt for every arrival is a catastrophe: the machine spends all its time answering the door and never reads the mail. NAPI switches modes on its own — the first packet raises an interrupt, then the kernel masks interrupts for that queue and simply asks the driver's poll() for packets in batches, up to a weight of 64 per pass and a budget of 300 per softirq round. Under load the per-packet interrupt cost quietly disappears, and when things go quiet interrupts return so latency stays low.",
+    history: "NAPI came from Jamal Hadi Salim, Robert Olsson and Alexey Kuznetsov, published as Beyond Softnet at USENIX in 2001 and mainlined in 2.4.20 and 2.5. It cured interrupt livelock, the gigabit-era failure where a machine sat at 100% CPU handling interrupts while accomplishing nothing at all. GRO later stacked on top, merging small packets into larger ones during the same poll.",
+    purpose: "To keep the cost per packet near zero when traffic is heavy, without adding any delay when it is not.",
     responsibilities: [
       'Disable per-queue RX interrupts on first packet; schedule the poll',
       'Drain rings in poll() up to weight/budget; do GRO merging',
@@ -1094,10 +1094,10 @@ window.COMPONENTS = {
   },
   nic: {
     name: 'Network Interface Card',
-    tagline: 'Where software ends and physics begins',
-    description: 'The NIC is the silicon that turns descriptors into signals: it DMAs frames from RAM, computes checksums and segmentation in hardware, appends the FCS, and hands bits to the PHY. Modern cards also do RSS hashing, TSO/LRO, timestamping, and increasingly run eBPF/XDP-adjacent offloads.',
-    history: 'Robert Metcalfe and David Boggs built Ethernet at Xerox PARC in 1973; 3Com (Metcalfe, 1979) sold the first Ethernet cards, and IEEE 802.3 standardized it in 1983. Speeds went 10Mb → 100 (1995) → 1G (1999) → 10G (2002) → 100G+, and NICs absorbed ever more of the stack as CPUs stopped getting faster per-core.',
-    purpose: 'Bridge the kernel’s packet abstractions to a physical transmission medium, offloading what silicon does better.',
+    tagline: "Where software ends and physics begins",
+    description: "The network interface card is the silicon that turns instructions into signals. It fetches the frame out of RAM by itself over DMA, computes checksums in hardware, chops oversized sends into wire-sized frames (TSO), appends the trailing FCS check code, and hands the bits to the PHY. Modern cards do far more besides: hashing arriving flows across multiple receive queues with RSS so several CPUs can share the load, timestamping packets, and absorbing more of the stack every year as individual CPU cores stopped getting faster.",
+    history: "Robert Metcalfe and David Boggs built Ethernet at Xerox PARC in 1973; 3Com, which Metcalfe founded in 1979, sold the first Ethernet cards, and IEEE 802.3 standardized it in 1983. Speeds climbed from 10Mb to 100 in 1995, to 1G in 1999, 10G in 2002, and past 100G today — and NICs absorbed ever more of the stack as CPUs stopped getting faster per core.",
+    purpose: "To carry the kernel's neat abstractions across the boundary into a physical medium, and to do in silicon whatever silicon does better.",
     responsibilities: [
       'DMA frames to/from host memory via descriptor rings',
       'Compute/verify checksums; segment large sends (TSO) and coalesce receives (LRO/GRO assist)',
@@ -1121,10 +1121,10 @@ window.COMPONENTS = {
   },
   ethframe: {
     name: 'Ethernet Frame',
-    tagline: '14 bytes of header, up to 1500 of payload, 4 bytes of CRC — repeat a trillion times',
-    description: 'The L2 container: destination MAC a4:91:b1:0c:44:e2, source 3c:07:54:6a:2b:91, EtherType 0x0800 for IPv4, then the IP packet, then a 32-bit CRC. Preamble and interframe gap wrap it on the wire. The destination MAC is the next hop, never the final destination — that is IP’s job.',
-    history: 'Metcalfe’s 1973 memo described CSMA/CD over a shared coax; DIX Ethernet II (DEC/Intel/Xerox, 1982) fixed the EtherType field format still used today, and IEEE 802.3 (1983) standardized the alternative length-field framing. Switching (1990s) killed collisions, but the frame format survived every speed jump unchanged.',
-    purpose: 'Deliver a payload between two adjacent stations on a link, with error detection.',
+    tagline: "14 bytes of header, up to 1500 of cargo, 4 bytes of checksum — repeated a trillion times",
+    description: "This is the envelope a packet travels in across a single link. The front says who it is for and who it is from, using 48-bit hardware addresses — a4:91:b1:0c:44:e2 and 3c:07:54:6a:2b:91 — followed by a two-byte EtherType saying what is inside, where 0x0800 means an IPv4 packet. Then the payload, then a 32-bit CRC so a corrupted frame is discarded rather than believed, with a preamble and an interframe gap wrapping it on the wire. The crucial subtlety: that destination address is only the next machine along, never the final one — that is IP's job.",
+    history: "Metcalfe's 1973 memo described stations sharing one coaxial cable and listening before speaking, CSMA/CD. The DIX Ethernet II standard from DEC, Intel and Xerox in 1982 fixed the EtherType field still used today, and IEEE 802.3 in 1983 standardized an alternative framing that treats the same field as a length. Switching in the 1990s made collisions history, but the frame format itself has survived every leap in speed unchanged.",
+    purpose: "To carry a payload safely from one machine to the machine standing right next to it, and to notice if it got scrambled on the way.",
     responsibilities: [
       'Address the next hop via 48-bit MAC addresses',
       'Identify the payload protocol via EtherType (0x0800 IPv4, 0x0806 ARP, 0x86DD IPv6)',
@@ -1147,10 +1147,10 @@ window.COMPONENTS = {
   },
   wififrame: {
     name: '802.11 Frame',
-    tagline: 'Four address fields, ACKs for every frame, and a medium everyone must share',
-    description: 'Wi-Fi frames carry up to four MAC addresses (transmitter, receiver, source, destination via the AP), a sequence control field, and QoS headers. Unlike Ethernet, every unicast frame is individually acknowledged and retried at the MAC layer, and stations must win contention (CSMA/CA + backoff) before transmitting at all.',
-    history: 'IEEE 802.11 shipped in 1997 at 2 Mbps; 802.11b (1999) made it consumer reality and Wi-Fi Alliance branding made it a household word. WEP (broken 2001) gave way to WPA (2003), WPA2/CCMP (2004), and WPA3/SAE (2018). 802.11n (2009) added MIMO, ac (2013) wider channels, ax/Wi-Fi 6 (2019) OFDMA scheduling.',
-    purpose: 'Deliver L2 frames over a shared, lossy radio medium with retries, encryption, and coordinated access.',
+    tagline: "Four address fields, an acknowledgement for every frame, and a room where everyone must take turns",
+    description: "A Wi-Fi frame looks like an Ethernet frame that has been through something. It can carry up to four MAC addresses rather than two, because the access point relays between the air and the wired network, plus a sequence control field and QoS headers. Two things make it fundamentally different: every unicast frame is individually acknowledged and retried at the MAC layer, entirely invisibly to IP, and no station may transmit at all until it has listened, waited and won a random backoff — because the medium belongs to everyone at once.",
+    history: "IEEE 802.11 arrived in 1997 at a stately 2 Mbps; 802.11b in 1999 made it a consumer reality and Wi-Fi Alliance branding made it a household word. Security lived several lifetimes: WEP, broken in 2001, then WPA in 2003, WPA2 with CCMP in 2004, and WPA3 with SAE in 2018. Speed followed its own path: MIMO with 802.11n in 2009, wider channels with ac in 2013, and scheduled OFDMA access with ax, better known as Wi-Fi 6, in 2019.",
+    purpose: "To move link-layer frames across a shared, lossy radio channel with retries, encryption, and an orderly way of taking turns.",
     responsibilities: [
       'Contend for the medium: CSMA/CA, DIFS, random backoff, optional RTS/CTS',
       'Acknowledge and retransmit at the MAC layer, invisible to IP',
@@ -1173,10 +1173,10 @@ window.COMPONENTS = {
   },
   phy: {
     name: 'PHY / Transceiver',
-    tagline: 'Encodes bits as voltage, light, or radio — and negotiates the link before any of it',
-    description: 'The physical layer chip converts frame bits into line signals: 4D-PAM5 over copper for gigabit, PAM4 over fiber at higher rates, OFDM subcarriers for Wi-Fi. It also runs auto-negotiation, link training, and clock recovery — the reason a cable "just works" when plugged in.',
-    history: 'Manchester encoding carried 10BASE-T (1990); 100BASE-TX brought 4B/5B (1995); 1000BASE-T (1999) achieved gigabit over Cat5 with 4D-PAM5 and echo cancellation on all four pairs simultaneously — an achievement in DSP as much as networking. Auto-negotiation (802.3u, 1995) ended the era of manually matching duplex.',
-    purpose: 'Turn abstract bits into physically transmittable symbols reliably enough that upper layers can pretend the medium is digital.',
+    tagline: "Turns bits into voltage, light or radio — and negotiates the link before any of it",
+    description: "The PHY is the last piece of digital logic before the world turns analog. It converts the frame's bits into whatever the medium actually carries: 4D-PAM5 across four copper pairs for gigabit Ethernet, PAM4 on fiber at higher rates, OFDM subcarriers for Wi-Fi. It also does everything that makes a cable just work when you plug it in — agreeing speed and duplex with the other end, training the link, and recovering the sender's clock from the signal itself.",
+    history: "10BASE-T used Manchester encoding in 1990; 100BASE-TX brought 4B/5B in 1995; and 1000BASE-T in 1999 wrung a full gigabit out of ordinary Cat5 by running all four pairs at once in both directions with 4D-PAM5 and echo cancellation — an achievement in digital signal processing as much as in networking. Auto-negotiation, standardized in 802.3u in 1995, ended the miserable era of manually matching duplex at both ends.",
+    purpose: "To make an inherently analog medium behave reliably enough that every layer above it can pretend the world is digital.",
     responsibilities: [
       'Modulate/demodulate: line coding, symbol mapping, forward error correction',
       'Auto-negotiate speed, duplex, and flow control with the link partner',
@@ -1199,10 +1199,10 @@ window.COMPONENTS = {
   },
   signal: {
     name: 'Physical Signal',
-    tagline: 'Electrons, photons, or 2.4 GHz radio — the packet as a physical event',
-    description: 'The frame finally exists as energy: differential voltage on twisted pairs, laser pulses down single-mode fiber at ~200,000 km/s, or modulated radio waves. Propagation delay here is the floor no engineer can optimize below — physics sets the RTT budget for everything above.',
-    history: 'Telegraph signaling (1830s) established the electrical transmission of symbols; Shannon’s 1948 information theory set the capacity limits every modulation scheme approaches; Kao and Hockham’s 1966 low-loss fiber prediction (Nobel 2009) enabled the intercontinental optical backbone the internet now rides.',
-    purpose: 'Physically transport information across distance within the limits of the medium and the speed of light.',
+    tagline: "The packet, briefly, as physics: electrons, photons, or 2.4 GHz in the air",
+    description: "Here the frame stops being data and becomes energy — a differential voltage across a twisted pair, a pulse of laser light down single-mode fiber, or a modulated radio wave. Light in glass travels at roughly two-thirds of its vacuum speed, about 200,000 km/s, which works out to some 5 microseconds per kilometer. That number is the floor: no engineer, no protocol and no amount of money moves a request across an ocean faster than light in glass allows.",
+    history: "Telegraph signaling in the 1830s established that symbols could be sent as electricity. Claude Shannon's 1948 information theory set the capacity ceiling every modulation scheme since has tried to approach. And in 1966 Charles Kao and George Hockham predicted glass could be made pure enough to carry light for kilometers — an idea that won Kao a share of the 2009 Nobel Prize and built the intercontinental optical backbone the internet now rides on.",
+    purpose: "To physically carry information across distance, within the hard limits set by the medium and by the speed of light.",
     responsibilities: [
       'Carry modulated symbols with sufficient SNR for the receiver to decode',
       'Impose propagation delay (~5 µs/km fiber) and attenuation over distance',
@@ -1225,10 +1225,10 @@ window.COMPONENTS = {
   },
   switch: {
     name: 'Ethernet Switch',
-    tagline: 'Learns MACs, forwards frames, floods only when it must',
-    description: 'A switch forwards frames by MAC using a CAM/MAC table it builds by observing source addresses on each port. Unknown destinations are flooded to all ports; the reply teaches it the location. It is a pure L2 device: it never looks at IP addresses and never decrements TTL.',
-    history: 'Kalpana shipped the first Ethernet switch (EtherSwitch, 1990), replacing hubs and their shared collision domains; Cisco acquired them in 1994. Radia Perlman’s Spanning Tree Protocol (1985, later 802.1D) made redundant switch topologies survivable by pruning loops — because Ethernet frames have no TTL to save them.',
-    purpose: 'Forward frames only where they need to go, giving every port a full-duplex, collision-free link.',
+    tagline: "Learns who lives where by listening, and only shouts when it truly has to",
+    description: "A switch forwards frames between ports, and the charming part is how it learns where everyone is: it simply watches the source address of every frame that passes and notes which port that machine is on, filling a CAM table. If it does not yet know where a destination lives, it floods the frame out of every port and lets the reply teach it. It never looks at IP addresses and never decrements TTL — as far as a switch is concerned, IP does not exist.",
+    history: "Kalpana shipped the first Ethernet switch, the EtherSwitch, in 1990, replacing hubs and the shared collision domains they imposed on everyone; Cisco acquired the company in 1994. Radia Perlman's Spanning Tree Protocol from 1985, later standardized as 802.1D, made redundant switch topologies survivable by pruning the links that would form a loop — necessary because Ethernet frames, unlike IP packets, have no TTL to save them from circling forever.",
+    purpose: "To send each frame only where it actually needs to go, giving every port its own full-duplex, collision-free link.",
     responsibilities: [
       'Learn source MAC to port mappings into the CAM table with aging timers',
       'Forward known unicast to one port; flood unknown/broadcast/multicast',
@@ -1251,10 +1251,10 @@ window.COMPONENTS = {
   },
   homerouter: {
     name: 'Home Router / Gateway',
-    tagline: 'Switch, AP, DHCP server, DNS forwarder, firewall, and NAT box in one plastic shell',
-    description: 'The box at 192.168.1.1 (MAC a4:91:b1:0c:44:e2) is the default gateway: it terminates our LAN frame, routes the packet toward the internet, rewrites the source to WAN IP 203.0.113.77, and tracks the flow so the reply comes home. It is also handing out DHCP leases and often running dnsmasq.',
-    history: 'Consumer NAT routers arrived with broadband around 1999-2000 (Linksys BEFSR41 et al.), most running Linux — a GPL-compliance fight over the WRT54G source in 2003 birthed OpenWrt and DD-WRT, arguably the most consequential open-source firmware lineage in home networking.',
-    purpose: 'Connect a private LAN to a single ISP-provided public address while providing addressing, naming, and basic security.',
+    tagline: "Switch, access point, DHCP server, DNS forwarder, firewall and NAT box in one plastic shell",
+    description: "The little box at 192.168.1.1 does a startling number of jobs at once. For our packet it is the default gateway: it accepts the frame addressed to its own MAC a4:91:b1:0c:44:e2, looks at the IP inside, rewrites the source to the single public address the ISP gave it (203.0.113.77), notes the flow so the reply can be sent back to the right machine, and forwards it toward the internet. In its spare moments it is handing out DHCP leases and answering DNS questions, usually via dnsmasq.",
+    history: "Consumer NAT routers arrived with broadband around 1999 and 2000 — the Linksys BEFSR41 and its cousins — and most of them ran Linux. A GPL compliance fight over the source code of the WRT54G in 2003 forced that code into the open and gave birth to OpenWrt and DD-WRT, arguably the most consequential open-source firmware lineage in home networking.",
+    purpose: "To let a house full of devices share one public address, one connection and one set of names, with the front door firmly shut by default.",
     responsibilities: [
       'Route between LAN and WAN; be the default gateway for all clients',
       'Perform NAT/PAT so many private hosts share one public IP',
@@ -1278,10 +1278,10 @@ window.COMPONENTS = {
   },
   nat: {
     name: 'NAT (Network Address Translation)',
-    tagline: 'One public IP, many private hosts — the hack that postponed IPv4 exhaustion by decades',
-    description: 'NAT rewrites the packet’s source 192.168.1.23:51324 to 203.0.113.77:51324 (or a remapped port) and remembers the mapping so replies can be reversed. It is stateful by necessity, invisible to the client, and the reason inbound connections to your laptop do not work.',
-    history: 'Egevang and Francis proposed NAT in RFC 1631 (1994) as a stopgap for address exhaustion; RFC 3022 (2001) documented the port-translating (NAPT) form everyone actually uses. It broke the end-to-end principle so thoroughly that a generation of protocols (SIP, FTP, P2P) needed helpers, STUN, TURN, and ICE to survive it.',
-    purpose: 'Multiplex many private endpoints behind one routable address, preserving IPv4 for a few more decades.',
+    tagline: "One public address, many private machines — the hack that bought IPv4 an extra thirty years",
+    description: "There were never enough IPv4 addresses for every device, so your router tells a small lie on your behalf. As the packet leaves, NAT rewrites the source from your private 192.168.1.23:51324 to the public 203.0.113.77:51324, remapping the port if it collides with someone else's, and writes the swap down. When the reply comes back addressed to the public side, the router looks up the note and puts the original address back. Your laptop never knows — and that same mechanism is exactly why nobody on the internet can start a connection to it.",
+    history: "Kjeld Egevang and Paul Francis proposed NAT in RFC 1631 in 1994 as an explicit stopgap for address exhaustion, and RFC 3022 in 2001 documented the port-translating NAPT form everyone actually uses. It broke the end-to-end principle so thoroughly that a whole generation of protocols — SIP, FTP, peer-to-peer everything — needed helpers, STUN, TURN and ICE simply to survive it.",
+    purpose: "To let a whole network of machines share a single routable address, buying the internet several extra decades of breathing room.",
     responsibilities: [
       'Rewrite source address/port on egress and restore on ingress',
       'Maintain the translation table with per-flow timeouts',
@@ -1304,10 +1304,10 @@ window.COMPONENTS = {
   },
   modem: {
     name: 'Modem / ONT',
-    tagline: 'Translates Ethernet into whatever the last mile actually speaks',
-    description: 'The modem converts LAN Ethernet frames to the access medium: RF channels on coax for DOCSIS cable, laser bursts on a shared PON for fiber, or DSL tones on copper. It is where your traffic joins a medium shared with the neighborhood — and where upstream is usually far narrower than downstream.',
-    history: 'Dial-up modems (Bell 103, 1962) topped out at 56k. DOCSIS 1.0 (CableLabs, 1997) put IP on cable TV plant; ADSL (1998) reused phone copper. GPON (ITU-T G.984, 2003) and now XGS-PON brought symmetric gigabit fiber. DOCSIS 3.1 (2013) added OFDM and full duplex ambitions to keep coax competitive.',
-    purpose: 'Modulate and demodulate between the home network and the ISP access network.',
+    tagline: "Translates your Ethernet into whatever the last mile actually speaks",
+    description: "Your home network speaks Ethernet; the cable, fiber or phone line to your provider does not. The modem is the translator: RF channels on coax for DOCSIS cable, laser bursts on a shared fiber for PON, tones on copper for DSL. It is also the point where your traffic joins a medium shared with the whole neighborhood, and where you discover that the upstream direction is usually far narrower than the downstream one.",
+    history: "Dial-up modems began with the Bell 103 in 1962 and eventually topped out at 56k. DOCSIS 1.0, from CableLabs in 1997, put IP traffic on cable TV plant; ADSL in 1998 reused the existing phone copper. GPON, standardized as ITU-T G.984 in 2003, and now XGS-PON brought symmetric gigabit fiber, while DOCSIS 3.1 in 2013 added OFDM and full-duplex ambitions to keep coax competitive.",
+    purpose: "To convert continuously between the home network and the provider's access network, in both directions.",
     responsibilities: [
       'Convert Ethernet frames to the access-layer encapsulation (DOCSIS/PON/DSL)',
       'Request upstream transmit grants from the CMTS/OLT — the medium is scheduled, not free',
@@ -1330,10 +1330,10 @@ window.COMPONENTS = {
   },
   headend: {
     name: 'ISP Headend / CMTS',
-    tagline: 'Where thousands of neighborhood links terminate and become IP traffic',
-    description: 'The CMTS (cable) or OLT (fiber) terminates the access medium, schedules upstream transmission slots, and hands aggregated traffic to the ISP’s routed core. It enforces per-subscriber policy: rate limits, DHCP/provisioning, and lawful-intercept plumbing.',
-    history: 'Cable headends began as TV signal aggregation points in the 1950s-60s; DOCSIS (1997) added the CMTS to make them two-way IP infrastructure. The 2010s brought distributed access architecture (Remote PHY), pushing digital termination deep into neighborhoods to shorten analog runs and increase capacity.',
-    purpose: 'Aggregate many subscriber access links into the provider’s IP network while policing capacity per subscriber.',
+    tagline: "Where a whole neighborhood's connections land and turn into ordinary internet traffic",
+    description: "Every access line in an area terminates in one place: a CMTS for cable, an OLT for fiber. It is the far end of your modem's conversation, and it does the scheduling — because on a shared medium, somebody has to decide which modem may transmit in which moment, and it grants those slots. Once frames arrive it strips the access-layer encapsulation and hands plain IP traffic to the provider's routed core, applying your subscription's rate limits on the way past.",
+    history: "Cable headends began life in the 1950s and 60s as places to aggregate television signals. DOCSIS in 1997 added the CMTS and turned them into two-way IP infrastructure. In the 2010s distributed access architecture, notably Remote PHY, pushed the digital termination deep into neighborhoods to shorten the analog runs and increase capacity.",
+    purpose: "To gather hundreds of homes onto the provider's network at once, while policing how much of it each one may use.",
     responsibilities: [
       'Schedule upstream grants and downstream channel bonding per modem',
       'Terminate access encapsulation and route/bridge into the ISP core',
@@ -1356,10 +1356,10 @@ window.COMPONENTS = {
   },
   ispcore: {
     name: 'ISP Core Network',
-    tagline: 'MPLS-labeled, high-capacity routing between access edge and the wider internet',
-    description: 'The provider core carries aggregated subscriber traffic across regional and national links, typically with MPLS label switching and IS-IS/OSPF for internal topology, then hands traffic to peering or transit at border routers. Our packet to 104.18.32.7 crosses it in a few milliseconds.',
-    history: 'Backbones evolved from NSFNET (1985-1995, the 56kbps-to-45Mbps academic core) to commercial ISPs after the 1995 privatization. MPLS (Cisco tag switching 1996, standardized RFC 3031 in 2001) merged ATM-style traffic engineering with IP routing; segment routing (RFC 8402, 2018) is now simplifying it again.',
-    purpose: 'Move enormous aggregate traffic between edges reliably, with engineering control over paths and failures.',
+    tagline: "The provider's own motorway network between your street and the rest of the internet",
+    description: "Once traffic leaves the neighborhood it enters the provider's core: very high capacity regional and national links between large routers. Inside, packets are often not routed hop by hop on IP addresses at all but label-switched with MPLS, which lets the operator steer traffic down chosen paths, while an interior protocol such as IS-IS or OSPF keeps everyone's map of the network current. Our packet to 104.18.32.7 crosses the whole thing in a few milliseconds and is handed off at a border router.",
+    history: "Backbones grew out of NSFNET, the academic core that ran from 1985 to 1995 and climbed from 56 kbps to 45 Mbps, before the 1995 privatization handed the internet to commercial providers. MPLS began as Cisco's tag switching in 1996 and was standardized as RFC 3031 in 2001, blending ATM-style traffic engineering with IP routing; segment routing, RFC 8402 in 2018, is now simplifying it all over again.",
+    purpose: "To move enormous aggregated traffic between edges reliably, with real engineering control over which path it takes and what happens when a link fails.",
     responsibilities: [
       'Route/label-switch aggregated traffic across the provider footprint',
       'Run IGP (IS-IS/OSPF) for topology and iBGP for external route distribution',
@@ -1382,10 +1382,10 @@ window.COMPONENTS = {
   },
   bgp: {
     name: 'BGP',
-    tagline: 'The protocol that glues 75,000 autonomous networks into one internet — on trust',
-    description: 'Border Gateway Protocol exchanges reachability between autonomous systems: "AS 13335 can reach 104.18.0.0/20, via this AS path." Path selection is policy-first (local preference, AS path length, MED), not shortest-latency. The full table exceeds 950,000 IPv4 prefixes.',
-    history: 'Kirk Lougheed and Yakov Rekhter sketched BGP on three napkins at an IETF meeting in 1989 (RFC 1105 — the "two-napkin protocol"); BGP-4 with CIDR support (RFC 1654/4271) arrived in 1994-95 and still runs the internet. Security came late and partially: RPKI origin validation (RFC 6480, 2012) is only now widely deployed.',
-    purpose: 'Distribute inter-domain routes and let each network apply its own business policy to path selection.',
+    tagline: "The protocol that glues 75,000 independent networks into one internet, largely on trust",
+    description: "Nobody runs the internet, so the networks that make it up have to tell each other what they can reach. BGP is that conversation: AS 13335 announces that it can get to 104.18.0.0/20, along with the list of networks the traffic would pass through on the way. Crucially, the best path is not the shortest or the fastest one — it is whichever each network's own policy prefers, ranked by local preference, then AS path length, then MED. The full table now exceeds 950,000 IPv4 prefixes.",
+    history: "Kirk Lougheed and Yakov Rekhter sketched BGP on three napkins at an IETF meeting in 1989, which is why RFC 1105 is remembered as the two-napkin protocol. BGP-4, with support for CIDR, arrived in RFC 1654 and RFC 4271 between 1994 and 1995, and still runs the internet today. Security came late and partially: RPKI origin validation was specified in RFC 6480 in 2012 and is only now being widely deployed.",
+    purpose: "To spread reachability information between independent networks, and let each of them apply its own commercial judgment to the result.",
     responsibilities: [
       'Advertise owned prefixes and propagate learned routes with AS path attributes',
       'Select best paths by policy: local pref, AS path length, origin, MED, IGP cost',
@@ -1408,10 +1408,10 @@ window.COMPONENTS = {
   },
   fiber: {
     name: 'Long-Haul Fiber',
-    tagline: 'Glass strands carrying terabits, and the propagation delay you cannot negotiate with',
-    description: 'Long-haul fiber links carry dozens of wavelengths (DWDM), each at 100-800 Gbps, amplified every ~80 km by EDFAs. Light travels at roughly two-thirds c in glass — about 5 microseconds per kilometer — which sets the irreducible latency of every intercontinental request.',
-    history: 'Charles Kao predicted low-loss fiber in 1966 (Nobel 2009); Corning produced 20 dB/km glass in 1970. TAT-8 (1988) was the first transatlantic fiber cable at 280 Mbps. Erbium-doped amplifiers (1987) and DWDM (1990s) multiplied capacity by orders of magnitude; today ~600 submarine cables carry over 99% of intercontinental traffic.',
-    purpose: 'Move immense aggregate bandwidth over continental and oceanic distances with minimal loss.',
+    tagline: "Strands of glass carrying terabits — and a propagation delay you cannot argue with",
+    description: "Long-haul fiber is how continents are joined. One strand carries dozens of separate colors of light at once, a technique called DWDM, each color a channel of 100 to 800 Gbps, with EDFA optical amplifiers boosting them roughly every 80 km without ever converting back to electricity. Light in glass travels at about two-thirds of its vacuum speed, near enough 5 microseconds per kilometer, and that is the irreducible cost of every intercontinental request you will ever make.",
+    history: "Charles Kao predicted low-loss fiber in 1966 and shared the 2009 Nobel Prize for it; Corning produced glass clear enough, at 20 dB/km, in 1970. TAT-8, the first transatlantic fiber cable, opened in 1988 carrying 280 Mbps. Erbium-doped amplifiers in 1987 and DWDM through the 1990s multiplied capacity by orders of magnitude, and today roughly 600 submarine cables carry well over 99% of all intercontinental traffic.",
+    purpose: "To carry staggering aggregate bandwidth across continents and oceans with very little lost along the way.",
     responsibilities: [
       'Carry many wavelengths simultaneously via DWDM multiplexing',
       'Amplify optically (EDFA) without converting to electrical signals',
@@ -1434,10 +1434,10 @@ window.COMPONENTS = {
   },
   tier1a: {
     name: 'Tier 1 Transit (AS 3356 class)',
-    tagline: 'Networks that reach the entire internet without paying anyone for transit',
-    description: 'A Tier 1 network (Lumen/3356, Arelion/1299, GTT, NTT, Telia-class) reaches every destination purely through settlement-free peering with other Tier 1s plus its own customers. Our packet may traverse one on the way to Cloudflare — though Cloudflare peers so widely it often does not need to.',
-    history: 'The Tier 1 concept emerged after the 1995 NSFNET privatization, when commercial backbones had to interconnect voluntarily. The 2005 Level 3 / Cogent depeering split the internet into partitions for weeks, proving the "full reachability" claim depends entirely on business relationships, not technology.',
-    purpose: 'Provide global reachability as a product, selling transit downstream and swapping traffic with equals.',
+    tagline: "The rare networks that reach the whole internet without paying anyone a penny",
+    description: "Most networks buy transit from somebody bigger. A Tier 1 network — Lumen at AS 3356, Arelion at AS 1299, GTT, NTT, Telia and a handful of others — has nobody to buy from: it reaches every destination on the internet purely through its own customers and settlement-free peering with the other Tier 1s. Our packet may well cross one on its way to Cloudflare, although Cloudflare peers so widely that it often does not need the favor.",
+    history: "The Tier 1 idea took shape after NSFNET was privatized in 1995, when commercial backbones suddenly had to interconnect voluntarily rather than through a government-funded core. In 2005 a depeering dispute between Level 3 and Cogent split the internet into partitions that could not reach each other for weeks — vivid proof that full reachability is a business relationship, not a technical property.",
+    purpose: "To sell global reachability as a product: transit downstream to everyone else, and traffic swapped as equals with the other giants.",
     responsibilities: [
       'Peer settlement-free with other Tier 1 networks',
       'Sell IP transit to ISPs, CDNs, and enterprises',
@@ -1460,10 +1460,10 @@ window.COMPONENTS = {
   },
   tier1b: {
     name: 'Peer Backbone (second transit hop)',
-    tagline: 'The other side of the handoff — a peer network carrying the packet closer',
-    description: 'A second large network on the path, reached over a settlement-free peering link or an IXP fabric. Traffic crosses AS boundaries here with no money changing hands in either direction; each side carries it because the exchange is mutually beneficial.',
-    history: 'Settlement-free peering formalized at the original NAPs (1994-95) and matured through the IXP movement (LINX 1994, AMS-IX 1997, DE-CIX 1995). The 2010s saw content networks (Google, Netflix, Cloudflare, Meta) become top-tier traffic sources, inverting the old ISP-centric hierarchy into a flatter, more directly-peered internet.',
-    purpose: 'Exchange traffic directly with another large network to cut cost, latency, and hop count.',
+    tagline: "The other side of the handshake — a peer network carrying the packet the rest of the way",
+    description: "This is the second large network on the path, reached over a settlement-free peering link or across an IXP fabric. No money moves in either direction here: each side carries the other's traffic because doing so is cheaper and faster for both than paying a third party to relay it. The packet crosses a boundary between two entirely separate companies without so much as an invoice being raised.",
+    history: "Settlement-free peering was formalized at the original NAPs in 1994 and 1995 and matured through the IXP movement — LINX in 1994, DE-CIX in 1995, AMS-IX in 1997. In the 2010s the content networks (Google, Netflix, Cloudflare, Meta) became the largest traffic sources in the world, inverting the old ISP-centric hierarchy into today's flatter, far more directly peered internet.",
+    purpose: "To exchange traffic directly with another large network, cutting cost, latency and hop count in one move.",
     responsibilities: [
       'Maintain settlement-free peering sessions and capacity with equals',
       'Honor traffic ratio and policy agreements',
@@ -1486,10 +1486,10 @@ window.COMPONENTS = {
   },
   ixp: {
     name: 'Internet Exchange Point',
-    tagline: 'A giant L2 fabric in a building where hundreds of networks meet and trade traffic',
-    description: 'An IXP is a shared switching fabric — DE-CIX Frankfurt, AMS-IX, LINX — where member networks connect one port and peer with hundreds of others, often via a route server. It converts what would be N^2 private cross-connects into one port plus BGP sessions.',
-    history: 'IXPs descend from the 1990s NAPs created for NSFNET privatization. LINX (1994), DE-CIX (1995), and AMS-IX (1997) grew into the largest, with DE-CIX peaking above 17 Tbps. Their existence keeps regional traffic local — an outage at a major IXP degrades an entire continent’s latency.',
-    purpose: 'Make peering cheap and dense so traffic stays local instead of touring the globe via transit.',
+    tagline: "A very large switch in a building where hundreds of networks meet to trade traffic",
+    description: "An internet exchange point is, at heart, a shared switching fabric — DE-CIX in Frankfurt, AMS-IX in Amsterdam, LINX in London — that members plug into with a single port. From that one port a network can peer with hundreds of others, often through a route server that hands out everybody's routes in one BGP session. It replaces what would otherwise be an impossible tangle of individual cross-connects between every pair of networks.",
+    history: "IXPs descend from the NAPs built for the NSFNET privatization in the 1990s. LINX in 1994, DE-CIX in 1995 and AMS-IX in 1997 grew into the largest, with DE-CIX peaking above 17 Tbps. Their importance is easiest to see when one has a bad day: an outage at a major IXP degrades the latency of an entire continent.",
+    purpose: "To make peering so cheap and so dense that regional traffic stays regional instead of touring the globe by way of somebody's transit.",
     responsibilities: [
       'Operate the shared L2 fabric and member ports',
       'Run route servers so one BGP session reaches many peers',
@@ -1512,10 +1512,10 @@ window.COMPONENTS = {
   },
   stubresolver: {
     name: 'Stub Resolver',
-    tagline: 'The tiny client in every host that knows one thing: who to ask',
-    description: 'The stub resolver — glibc getaddrinfo, systemd-resolved, or Chrome’s built-in async resolver — turns a hostname into an address by consulting nsswitch.conf, /etc/hosts, local caches, and finally sending a UDP query (TXID 0x8f3a) to 1.1.1.1. It performs no recursion itself; it delegates entirely.',
-    history: 'The split between stub and recursive resolvers was in the original DNS design (Mockapetris, RFC 882/883, 1983): hosts stay dumb, servers do the walking. Linux long used the simple glibc resolver reading /etc/resolv.conf; systemd-resolved (2014) added caching, DNSSEC validation, and per-link DNS, complicating the once-trivial picture.',
-    purpose: 'Resolve names to addresses for applications with the least possible client-side complexity.',
+    tagline: "The tiny piece of your computer that knows exactly one thing: who to ask about names",
+    description: "Your machine does not look up hostnames itself — it asks someone who will. The stub resolver, whether that is glibc's getaddrinfo, systemd-resolved or Chrome's own async resolver, checks the local rules in nsswitch.conf, glances at /etc/hosts and any cache, and then sends one small UDP question, tagged with a random transaction ID (ours is 0x8f3a), to a recursive resolver like 1.1.1.1. It does none of the walking itself; it delegates the entire job.",
+    history: "The split between a simple stub and a hard-working recursive server was in the original DNS design, from Paul Mockapetris' RFC 882 and 883 in 1983: hosts stay dumb, servers do the walking. Linux long used the plain glibc resolver, which just reads /etc/resolv.conf; systemd-resolved arrived in 2014 with caching, DNSSEC validation and per-link DNS, making a once-trivial picture considerably more interesting to debug.",
+    purpose: "To answer what address is this name? for applications with as little machinery on your own computer as possible.",
     responsibilities: [
       'Apply nsswitch.conf order: files (hosts), mdns, dns',
       'Append search domains and honor ndots/timeout/attempts options',
@@ -1539,10 +1539,10 @@ window.COMPONENTS = {
   },
   recursive: {
     name: 'Recursive Resolver (1.1.1.1)',
-    tagline: 'Does the walking so your laptop does not: root → TLD → authoritative, then caches',
-    description: 'The recursive resolver accepts our query for api.shop.dev, and if it is not cached, walks the delegation chain: root servers for .dev, TLD servers for shop.dev, then the authoritative servers for the answer. It caches every step by TTL and validates DNSSEC signatures when present.',
-    history: 'Recursion was part of DNS from Mockapetris’ 1983 design. Public recursive resolvers became infrastructure with OpenDNS (2006), Google Public DNS 8.8.8.8 (2009), and Cloudflare 1.1.1.1 (April 2018, with APNIC, promising a 24-hour log retention privacy stance). DoT (RFC 7858, 2016) and DoH (RFC 8484, 2018) encrypted the last mile.',
-    purpose: 'Centralize the expensive iterative resolution work and amortize it across many clients via caching.',
+    tagline: "Does the walking so your laptop does not: root, then TLD, then the answer — and remembers all of it",
+    description: "This is the server your computer actually asks, and the one that does the work. Given api.shop.dev and nothing in its cache, it climbs down the hierarchy: the root servers say who handles .dev, the .dev servers say who handles shop.dev, and shop.dev's own authoritative servers finally produce the address. Every answer along the way is cached for exactly as long as its owner permitted, so the next person to ask gets it instantly, and DNSSEC signatures are verified wherever they exist.",
+    history: "Recursion was part of Paul Mockapetris' DNS design from 1983. Public recursive resolvers became infrastructure with OpenDNS in 2006, Google Public DNS at 8.8.8.8 in 2009, and Cloudflare's 1.1.1.1 in April 2018, launched with APNIC and a promise to keep logs for only 24 hours. Encrypting the last mile came later: DNS over TLS in RFC 7858 in 2016, and DNS over HTTPS in RFC 8484 in 2018.",
+    purpose: "To do the expensive lookup once, then hand the answer instantly to everyone who asks next.",
     responsibilities: [
       'Iteratively query root, TLD, and authoritative servers following referrals',
       'Cache positive and negative answers by TTL (negative per RFC 2308)',
@@ -1566,10 +1566,10 @@ window.COMPONENTS = {
   },
   rootns: {
     name: 'Root Nameservers',
-    tagline: '13 named servers, 1,900+ anycast instances, and the answer is always "ask someone else"',
-    description: 'The root zone knows nothing about api.shop.dev — only which nameservers are authoritative for .dev. There are 13 root server identities (a through m.root-servers.net) operated by 12 organizations, replicated worldwide via anycast, and every recursive resolver ships their addresses in a hints file.',
-    history: 'The root zone dates to the original DNS deployment (1984-85); the 13-server limit came from fitting the priming response in a 512-byte UDP packet. Anycast (from 2002 onward, accelerated after the October 2002 DDoS attack on the roots) turned 13 addresses into hundreds of physical sites. The root zone was DNSSEC-signed in July 2010 with a public key ceremony.',
-    purpose: 'Serve the apex of the DNS hierarchy: delegations to every top-level domain.',
+    tagline: "Thirteen names, 1,900+ machines, and an answer that is always: ask someone else",
+    description: "The root servers sit at the very top of DNS and know almost nothing — certainly not where api.shop.dev lives. What they know is which nameservers are responsible for each top-level domain, so our question about .dev comes back as a polite referral. There are 13 root server identities, a through m.root-servers.net, run by 12 organizations, and each identity is really hundreds of machines around the world sharing one address; every recursive resolver ships their addresses baked into a hints file.",
+    history: "The root zone dates to the original DNS deployment in 1984 and 1985, and the number 13 comes from a mundane constraint — that was how many server addresses fit in a 512-byte UDP priming response. Anycast, from 2002 onward and accelerated by the October 2002 DDoS attack on the roots, turned those 13 addresses into hundreds of physical sites. The root zone was signed with DNSSEC in July 2010, in a public key ceremony still held in front of witnesses.",
+    purpose: "To serve the apex of the naming hierarchy: the pointer from every top-level domain to the servers that actually handle it.",
     responsibilities: [
       'Answer with NS referrals for TLDs plus glue records',
       'Serve the DNSSEC-signed root zone and its trust anchor',
@@ -1592,10 +1592,10 @@ window.COMPONENTS = {
   },
   tldns: {
     name: 'TLD Nameservers (.dev)',
-    tagline: 'One level down: knows every domain in its TLD and nothing about their contents',
-    description: 'The .dev TLD servers (operated by Google Registry, which runs .dev as an HSTS-preloaded TLD requiring HTTPS) answer with a referral to shop.dev’s authoritative nameservers plus DS records for DNSSEC. They know delegations, not addresses.',
-    history: 'The original TLDs were defined in RFC 920 (1984): .com, .edu, .gov, .mil, .org, .net, plus ccTLDs. ICANN’s new gTLD program (2012 application round) added hundreds; Google bought .dev at auction for $25M in 2015 and launched it publicly in 2019, notable for being HSTS-preloaded — every .dev site is HTTPS-only by browser enforcement.',
-    purpose: 'Hold delegations for every second-level domain registered under one top-level domain.',
+    tagline: "One level down: knows every domain in .dev, and nothing whatsoever about their contents",
+    description: "The .dev nameservers hold exactly one kind of knowledge: which nameservers each registered domain uses. Ask them about api.shop.dev and they will not know the address, but they will tell you precisely who does — shop.dev's own authoritative servers — along with the DS records that let you verify the next step is genuine. They are operated by Google Registry, which made .dev unusual by preloading the whole top-level domain into browsers' HSTS lists, so every .dev site is HTTPS whether it likes it or not.",
+    history: "The original top-level domains were defined in RFC 920 in 1984: .com, .edu, .gov, .mil, .org, .net, plus a country code for each nation. ICANN's new gTLD program, whose application round opened in 2012, added hundreds more; Google bought .dev at auction for $25M in 2015 and launched it publicly in 2019, notable for being HSTS-preloaded — every .dev site is HTTPS-only by browser enforcement.",
+    purpose: "To hold the delegation for every second-level domain under one top-level domain, and move each query one step closer to its answer.",
     responsibilities: [
       'Return NS referrals and glue for delegated domains',
       'Publish DS records linking child zones into the DNSSEC chain',
@@ -1619,10 +1619,10 @@ window.COMPONENTS = {
   },
   authns: {
     name: 'Authoritative Nameserver',
-    tagline: 'Where the answer actually lives: the zone file for shop.dev',
-    description: 'The authoritative server for shop.dev holds the zone data and answers with the AA (authoritative answer) flag set: api.shop.dev is a CNAME/A pointing at Cloudflare anycast 104.18.32.7. Behind the scenes it may compute answers dynamically for geo-steering or health-based failover.',
-    history: 'BIND (Berkeley Internet Name Domain, 1984, from a UC Berkeley student project) was the reference implementation for decades and the source of many CVEs; NSD (2003), PowerDNS (1999), and Knot (2011) followed, while cloud providers (Route 53 in 2010, Cloudflare DNS) moved authority into API-driven anycast fleets with sub-minute propagation.',
-    purpose: 'Serve the definitive records for a zone and control how traffic to that name is steered.',
+    tagline: "Where the answer actually lives: the zone file for shop.dev",
+    description: "This is the end of the DNS journey — the server that genuinely owns the answer, and says so by setting the AA, authoritative answer, flag in its reply. For us it says api.shop.dev resolves, via a CNAME or an A record, to the Cloudflare anycast address 104.18.32.7. It may not be reading that from a file at all: modern authoritative servers often compute the reply on the spot, steering different visitors to different addresses depending on where they are or which backends are currently healthy.",
+    history: "BIND, the Berkeley Internet Name Domain, began as a UC Berkeley student project in 1984 and was the reference implementation for decades — and, being vast and venerable, the source of a great many CVEs. PowerDNS in 1999, NSD in 2003 and Knot in 2011 followed, and then cloud providers like Route 53 in 2010 and Cloudflare DNS moved authority into API-driven anycast fleets where a change propagates in under a minute.",
+    purpose: "To hold the definitive records for a zone, and to decide where traffic for those names is actually steered.",
     responsibilities: [
       'Answer queries for the zone with AA set; return NXDOMAIN for nonexistent names',
       'Serve SOA, NS, A/AAAA, CNAME, MX, TXT, CAA and DNSSEC signatures',
@@ -1646,10 +1646,10 @@ window.COMPONENTS = {
   },
   anycast: {
     name: 'Anycast Edge',
-    tagline: 'One IP announced from 300+ cities — BGP picks the nearest instance for you',
-    description: '104.18.32.7 is not one machine: Cloudflare announces the covering prefix from every data center it operates, and normal BGP best-path selection routes each user to a topologically near instance. No DNS trickery, no client logic — the routing table is the load balancer.',
-    history: 'Anycast was described in RFC 1546 (1993) and first hardened at scale on the DNS root servers (from 2002). Cloudflare launched in September 2010 built entirely on anycast for both DNS and HTTP — unusual at the time, since stateful TCP over anycast was considered risky; in practice, routes are stable enough that resets are rare.',
-    purpose: 'Put the service topologically close to every user simultaneously, using routing rather than redirection.',
+    tagline: "One IP announced from 300+ cities — the routing table quietly becomes the load balancer",
+    description: "104.18.32.7 is not a machine. Cloudflare announces the same prefix to the internet from every data center it operates, and ordinary BGP best-path selection sends each visitor to whichever instance is nearest in network terms. There is no DNS trick and no logic in your browser: the internet's own routing decisions do the balancing, which is why the same address feels local in Sydney and in Stockholm.",
+    history: "Anycast was described in RFC 1546 in 1993 and first hardened at scale on the DNS root servers from 2002. Cloudflare launched in September 2010 built entirely on it, for both DNS and HTTP — an unusual bet at the time, since running stateful TCP over anycast was considered risky. In practice routes turn out to be stable enough that mid-connection resets are rare.",
+    purpose: "To place the service close to every user on earth simultaneously, using routing rather than redirection to get them there.",
     responsibilities: [
       'Announce the same prefix via BGP from many PoPs',
       'Absorb and disperse DDoS traffic across the whole footprint',
@@ -1673,10 +1673,10 @@ window.COMPONENTS = {
   },
   ddos: {
     name: 'DDoS Mitigation',
-    tagline: 'Drops the flood in silicon/XDP before it ever costs a socket',
-    description: 'At the edge, traffic passes fingerprinting and rate-limiting layers that drop attack packets in kernel bypass paths — Cloudflare’s L3/L4 mitigation (historically the BPF-based "Gatebot" and now XDP-driven l4drop) matches attack signatures and discards them at line rate, long before TCP state or an application worker is involved.',
-    history: 'DDoS emerged as a mass phenomenon with the February 2000 attacks on Yahoo/eBay/CNN. Amplification eras followed: DNS (2013 Spamhaus, 300 Gbps), NTP (2014), memcached (2018, 1.7 Tbps), and HTTP/2 Rapid Reset (CVE-2023-44487) which hit 398 million requests/second. XDP (kernel 4.8, 2016) gave defenders line-rate packet drop in software.',
-    purpose: 'Keep the service available under volumetric and application-layer attack without harming legitimate users.',
+    tagline: "Throws the flood away before it can cost anybody a socket",
+    description: "When an attack arrives, the cheapest packet is the one you never process. At the edge, traffic passes through fingerprinting and rate-limiting layers that recognize attack patterns and discard them in kernel-bypass paths — Cloudflare's L3/L4 mitigation, historically the BPF-based Gatebot and now XDP-driven l4drop, matches signatures and drops matching packets at line rate, long before any TCP state exists or any application worker is woken.",
+    history: "DDoS became a mass phenomenon with the February 2000 attacks on Yahoo, eBay and CNN. Then came the amplification eras, each larger than the last: DNS in the 2013 Spamhaus attack at 300 Gbps, NTP in 2014, memcached in 2018 at 1.7 Tbps, and HTTP/2 Rapid Reset, CVE-2023-44487, which peaked at 398 million requests per second. XDP, added in kernel 4.8 in 2016, finally gave defenders line-rate packet dropping in ordinary software.",
+    purpose: "To keep a service reachable straight through a flood, without making legitimate visitors pay for the attack.",
     responsibilities: [
       'Detect anomalies by flow sampling and behavioral fingerprinting',
       'Drop attack traffic at XDP/hardware level — before conntrack or socket allocation',
@@ -1700,10 +1700,10 @@ window.COMPONENTS = {
   },
   waf: {
     name: 'Web Application Firewall',
-    tagline: 'Reads the HTTP request and decides whether it smells like an attack',
-    description: 'The WAF inspects method, path, headers, and body against rule sets — SQL injection patterns, path traversal, known CVE probes (Log4Shell, Struts) — plus bot scores and rate limits. Our GET /products?limit=20 is boring, which is exactly what gets it through.',
-    history: 'ModSecurity (Ivan Ristić, 2002) created the open WAF category, later paired with the OWASP Core Rule Set (2006). Cloud WAFs (Cloudflare, AWS WAF 2015) made rule deployment global and instant — which became decisive in December 2021 when Log4Shell mitigations rolled out to millions of sites within hours of disclosure.',
-    purpose: 'Block application-layer attacks at the edge, buying time that patching cannot.',
+    tagline: "Reads the request itself and decides whether it smells like an attack",
+    description: "A web application firewall inspects the parts of a request a network firewall never sees: the method, the path, the headers, the body. It matches them against rule sets for the classic attacks — SQL injection, path traversal, probes for known vulnerabilities such as Log4Shell and Struts — and layers bot scores and rate limits on top. Our GET /products?limit=20 is thoroughly boring, which is precisely the quality that gets it waved through.",
+    history: "ModSecurity, written by Ivan Ristic in 2002, created the open WAF category, and the OWASP Core Rule Set gave it a shared body of rules from 2006. Cloud WAFs — Cloudflare, and AWS WAF from 2015 — made rule deployment global and instant, which became decisive in December 2021, when Log4Shell mitigations reached millions of sites within hours of disclosure.",
+    purpose: "To block application-layer attacks at the edge, buying the time that patching every server yourself would have cost you.",
     responsibilities: [
       'Match requests against managed and custom rule sets',
       'Score bots and enforce rate limits per IP/JA3/fingerprint',
@@ -1726,10 +1726,10 @@ window.COMPONENTS = {
   },
   cfcache: {
     name: 'Edge Cache',
-    tagline: 'Serves from a datacenter 20ms away instead of an origin 200ms away',
-    description: 'The edge cache stores responses keyed by URL and Vary headers, honoring Cache-Control and origin rules. Our /products?limit=20 API response is typically not cached by default (Cloudflare caches static extensions unless told otherwise), so this request becomes a cache MISS and proceeds to the origin.',
-    history: 'CDNs began with Akamai (1998, from MIT research on consistent hashing by Karger, Leighton et al.) serving static assets. Cloudflare (2010) fused caching with security at the same anycast edge. Modern edges add tiered caching, stale-while-revalidate (RFC 5861, 2010), and cache reservation to cut origin load by orders of magnitude.',
-    purpose: 'Terminate as many requests as possible at the edge, cutting both latency and origin cost.',
+    tagline: "Answers from a datacenter 20ms away instead of an origin 200ms away",
+    description: "The edge cache keeps copies of responses close to users, keyed by URL and by whichever headers the origin named in Vary. Whether it may answer at all is decided by the origin's Cache-Control headers and the site's own edge rules. Our /products?limit=20 is an API response, and Cloudflare does not cache those by default, so this one is recorded as a MISS and travels onward to the origin — a verdict you can read for yourself in the CF-Cache-Status header.",
+    history: "CDNs began with Akamai in 1998, commercializing MIT research on consistent hashing by Karger, Leighton and colleagues to serve static assets from nearby. Cloudflare in 2010 fused caching with security at the same anycast edge. Modern edges add tiered caching, stale-while-revalidate (RFC 5861, 2010) and cache reservation, cutting origin load by orders of magnitude.",
+    purpose: "To finish as many requests as possible at the edge, saving the visitor's time and the origin's money at once.",
     responsibilities: [
       'Store and serve responses per Cache-Control/Expires and edge rules',
       'Report status via CF-Cache-Status: HIT, MISS, EXPIRED, BYPASS, DYNAMIC',
@@ -1752,10 +1752,10 @@ window.COMPONENTS = {
   },
   cftls: {
     name: 'Edge TLS Termination',
-    tagline: 'The handshake ends 20ms away — encryption without the transcontinental RTT',
-    description: 'The edge terminates TLS: it presents the certificate for api.shop.dev, negotiates TLS 1.3 with X25519 key exchange and AES-128-GCM, and completes the handshake in one round trip. Because the edge is near the user, the expensive handshake RTTs are cheap ones.',
-    history: 'Netscape created SSL 2.0 (1995) and 3.0 (1996, Freier/Karlton/Kocher); the IETF renamed it TLS 1.0 (RFC 2246, 1999). BEAST/CRIME/POODLE/Heartbleed (2011-2014) forced a decade of hardening. TLS 1.3 (RFC 8446, August 2018) cut the handshake to 1-RTT, removed RSA key transport and static keys entirely, and encrypted most of the handshake itself.',
-    purpose: 'Provide confidentiality, integrity, and server authentication while minimizing handshake latency.',
+    tagline: "The handshake finishes 20ms away, so encryption stops costing a transatlantic round trip",
+    description: "TLS is what puts the S in HTTPS, and its handshake costs round trips — which is why it matters enormously where the far end of it sits. Here the edge, not the distant origin, presents the certificate for api.shop.dev, agrees on TLS 1.3 with X25519 key exchange and AES-128-GCM encryption, and proves it holds the matching private key. Because the edge is close by, the whole negotiation takes one short round trip instead of one very long one.",
+    history: "Netscape created SSL 2.0 in 1995 and SSL 3.0 in 1996, the latter from Freier, Karlton and Kocher; the IETF took it over and renamed it TLS 1.0 in RFC 2246 in 1999. A decade of attacks — BEAST, CRIME, POODLE, Heartbleed, between 2011 and 2014 — forced a great deal of hardening. TLS 1.3, RFC 8446 in August 2018, cut the handshake to 1-RTT, removed RSA key transport and static keys entirely, and encrypted most of the handshake itself.",
+    purpose: "To give you secrecy, integrity and proof of who you are talking to, while spending as little time on the wire as possible.",
     responsibilities: [
       'Present the certificate chain and prove key possession',
       'Negotiate version, cipher suite, and ALPN (h2/http1.1) in ClientHello/ServerHello',
@@ -1779,10 +1779,10 @@ window.COMPONENTS = {
   },
   originpull: {
     name: 'Origin Pull',
-    tagline: 'A second, separate TLS connection from the edge to your real server',
-    description: 'On a cache miss the edge opens its own connection to origin 198.51.100.10, adding X-Forwarded-For, CF-Connecting-IP, and X-Forwarded-Proto so the app knows the real client. This leg is a distinct TCP+TLS session, usually kept alive and pooled, and it is where the transcontinental RTT actually gets paid.',
-    history: 'Reverse-proxy origin pull is as old as CDNs (Akamai, 1998), but the security model matured slowly: Cloudflare added Authenticated Origin Pulls (mTLS client certs) and Argo Smart Routing (2017) to optimize this leg, and Tunnel/cloudflared (2018) removed the need for a publicly reachable origin at all.',
-    purpose: 'Fetch fresh content from the origin while preserving client context and protecting the origin from direct exposure.',
+    tagline: "A second, completely separate connection from the edge to your real server",
+    description: "When the edge has no cached answer, it becomes a client itself. It opens its own TCP connection and its own TLS session to the origin at 198.51.100.10 — nothing of your connection is forwarded — and adds headers so your application can still tell who really asked: X-Forwarded-For, CF-Connecting-IP, X-Forwarded-Proto. This is the leg where the transcontinental round trip is finally paid for, which is exactly why these connections are pooled and kept alive as long as they can be.",
+    history: "Pulling from an origin is as old as CDNs themselves, going back to Akamai in 1998, but the security model matured slowly. Cloudflare added Authenticated Origin Pulls, which uses mTLS client certificates so an origin can refuse anyone but the edge, and Argo Smart Routing in 2017 to optimize this leg; Tunnel and cloudflared in 2018 removed the need for the origin to be publicly reachable at all.",
+    purpose: "To fetch fresh content from your server while preserving who the real visitor was, and keeping that server out of the public eye.",
     responsibilities: [
       'Establish and pool TCP+TLS connections to origin servers',
       'Inject forwarding headers: X-Forwarded-For, CF-Connecting-IP, X-Forwarded-Proto',
@@ -1805,10 +1805,10 @@ window.COMPONENTS = {
   },
   lb: {
     name: 'Load Balancer',
-    tagline: 'Spreads connections across backends and notices when one dies',
-    description: 'The load balancer at the origin distributes incoming connections across app servers by round-robin, least-connections, or consistent hashing, while health checks eject unhealthy members. L4 balancers forward packets/flows; L7 balancers parse HTTP and can route by path, header, or cookie.',
-    history: 'Hardware load balancers (Cisco LocalDirector 1996, F5 BIG-IP 1997) started the category. LVS/IPVS brought L4 balancing into the Linux kernel (Wensong Zhang, 1998). HAProxy (Willy Tarreau, 2001) and nginx (Igor Sysoev, 2004) made software L7 balancing the default; Maglev (Google, NSDI 2016) and Katran (Meta, 2018) showed consistent hashing at XDP speed.',
-    purpose: 'Turn a pool of fallible servers into one reliable, horizontally scalable endpoint.',
+    tagline: "Spreads the work across your servers, and notices the moment one stops answering",
+    description: "A load balancer stands in front of a group of interchangeable servers and decides which one handles each arrival — round-robin, or fewest current connections, or a consistent hash so the same user keeps landing on the same backend. Just as importantly, it keeps checking that each member is still healthy and quietly removes any that is not. An L4 balancer forwards packets without looking inside; an L7 balancer parses the HTTP and can route by path, header or cookie.",
+    history: "The category began in hardware, with Cisco's LocalDirector in 1996 and F5's BIG-IP in 1997. Wensong Zhang brought L4 balancing into the Linux kernel itself as LVS/IPVS in 1998. HAProxy, from Willy Tarreau in 2001, and nginx, from Igor Sysoev in 2004, made software L7 balancing the default choice, and Google's Maglev (NSDI 2016) and Meta's Katran (2018) showed consistent hashing running at XDP speed.",
+    purpose: "To turn a pile of individually fallible servers into one endpoint that stays up, and that grows simply by adding more.",
     responsibilities: [
       'Select a backend per connection/request using the configured algorithm',
       'Run active and passive health checks; eject and re-admit members',
@@ -1832,10 +1832,10 @@ window.COMPONENTS = {
   },
   proxy: {
     name: 'Reverse Proxy (nginx/Caddy)',
-    tagline: 'Terminates TLS, speaks HTTP fluently, and hands clean requests to your app',
-    description: 'The reverse proxy accepts the connection, terminates TLS, normalizes and buffers the HTTP request, then proxies to the app at 172.17.0.2:3000 over plain HTTP. It handles slow clients, compression, static files, and header hygiene so the application never has to.',
-    history: 'Igor Sysoev wrote nginx to solve the C10K problem (Dan Kegel’s 1999 formulation) for Rambler, releasing it in October 2004 with an event-driven architecture opposite Apache’s process-per-connection model. Caddy (Matt Holt, 2015) went further by making automatic HTTPS via ACME the default — no cert configuration at all.',
-    purpose: 'Absorb the messy realities of the public internet so application code sees clean, well-formed requests.',
+    tagline: "Deals with the messy public internet so your application never has to",
+    description: "A reverse proxy sits in front of your app and absorbs everything unpleasant about being on the internet. It accepts the connection, terminates TLS, tidies and buffers the HTTP request, and only then passes something clean and complete to the app at 172.17.0.2:3000 over plain HTTP. Clients that dribble a request out over several minutes, compression, static files, header hygiene — all handled here, so your code only ever meets well-behaved requests.",
+    history: "Igor Sysoev wrote nginx for Rambler to solve the C10K problem — Dan Kegel's 1999 challenge of handling ten thousand simultaneous connections — and released it in October 2004 with an event-driven architecture that was the exact opposite of Apache's process-per-connection model. Caddy, from Matt Holt in 2015, went a step further by making automatic HTTPS via ACME the default, so there is no certificate configuration at all.",
+    purpose: "To absorb the realities of the open internet so application code can be written as though everyone were polite.",
     responsibilities: [
       'Terminate TLS and negotiate HTTP/1.1, HTTP/2, HTTP/3',
       'Buffer slow request bodies and slow client reads (Slowloris defense)',
@@ -1859,10 +1859,10 @@ window.COMPONENTS = {
   },
   dnat: {
     name: 'Port Publishing (DNAT)',
-    tagline: 'docker -p 443:3000 becomes an iptables rule rewriting the destination',
-    description: 'Publishing a container port installs a DNAT rule in the nat table’s PREROUTING chain: traffic to host port 443 has its destination rewritten to 172.17.0.2:3000. Conntrack remembers the mapping so replies are un-translated automatically on the way out.',
-    history: 'Destination NAT arrived with netfilter in kernel 2.4 (2001). Docker (2013) built port publishing directly on it, generating DOCKER chains; Kubernetes kube-proxy did the same at far larger scale until iptables rule counts (O(n) matching over thousands of services) drove the move to IPVS mode and later nftables/eBPF dataplanes like Cilium.',
-    purpose: 'Expose a service running inside an isolated namespace on a host-reachable address and port.',
+    tagline: "docker -p 443:3000 is really just one firewall rule rewriting an address",
+    description: "A container lives in its own network namespace, so its port 3000 is not reachable from outside. Publishing a port installs a destination NAT rule in the nat table's PREROUTING chain: traffic arriving at the host's port 443 has its destination rewritten to 172.17.0.2:3000 before routing even happens. Only the first packet of each flow is touched by the rule — connection tracking remembers the decision and applies it to everything that follows, including the replies going back the other way.",
+    history: "Destination NAT arrived with netfilter in kernel 2.4 in 2001. Docker built port publishing straight onto it in 2013, generating its own DOCKER chains. Kubernetes did the same thing at vastly larger scale through kube-proxy, until walking thousands of rules linearly per packet became untenable and drove the move to IPVS mode and later to nftables and eBPF dataplanes such as Cilium.",
+    purpose: "To make a service hidden inside an isolated namespace reachable at an address and port on the host.",
     responsibilities: [
       'Rewrite destination address/port on the first packet of a flow (PREROUTING)',
       'Let conntrack replay the translation for the rest of the flow, both directions',
@@ -1886,10 +1886,10 @@ window.COMPONENTS = {
   },
   bridge: {
     name: 'docker0 Bridge',
-    tagline: 'A software switch at 172.17.0.1 connecting every container to the host',
-    description: 'docker0 is an in-kernel Linux bridge: it learns MAC addresses, forwards frames between attached veth interfaces, and serves as the default gateway (172.17.0.1) for containers on 172.17.0.0/16. It is a switch made of code, sitting inside the host kernel.',
-    history: 'The Linux bridge dates to the 2.4 series (Lennert Buytenhek’s implementation) for turning a PC into an Ethernet switch. Docker adopted it in 2013 as the default network driver; Open vSwitch (2009) and later eBPF-based dataplanes (Cilium, 2016+) offer richer alternatives, but docker0 remains the canonical mental model.',
-    purpose: 'Provide L2 connectivity among containers and a routed path to the outside world.',
+    tagline: "A software Ethernet switch living inside your kernel at 172.17.0.1",
+    description: "docker0 is a switch made of code. It behaves exactly like the physical switch in an office — learning which MAC address sits on which port and forwarding frames accordingly — except its ports are virtual cables leading into containers, and the entire thing runs inside the host kernel. It also holds the address 172.17.0.1, which is the default gateway every container on 172.17.0.0/16 sends its traffic to.",
+    history: "The Linux bridge goes back to the 2.4 series and Lennert Buytenhek's implementation, written so a PC could act as an Ethernet switch. Docker adopted it as its default network driver in 2013. Open vSwitch from 2009, and eBPF-based dataplanes such as Cilium from 2016 onward, offer richer alternatives, but docker0 remains the mental model everybody learns first.",
+    purpose: "To connect containers to each other at the Ethernet level, and to give them a route out to the rest of the world.",
     responsibilities: [
       'Learn and forward by MAC across attached veth ports (FDB)',
       'Act as the default gateway IP for the container subnet',
@@ -1913,10 +1913,10 @@ window.COMPONENTS = {
   },
   veth: {
     name: 'veth Pair',
-    tagline: 'A virtual patch cable: two interfaces, whatever enters one exits the other',
-    description: 'A veth pair is two linked virtual NICs — one end (vethXXXX) enslaved to docker0 in the host namespace, the other (eth0) inside the container namespace. Frames written to one end appear on the other immediately, in-kernel, no wire required.',
-    history: 'veth landed in kernel 2.6.24 (2008) alongside network namespaces, contributed as part of the container infrastructure effort. It became the universal container plumbing primitive; performance-sensitive setups later added alternatives — macvlan/ipvlan (fewer hops) and eBPF-based redirection that skips the bridge entirely.',
-    purpose: 'Connect two network namespaces with an ordinary-looking Ethernet link.',
+    tagline: "A virtual patch cable: whatever goes in one end comes out the other",
+    description: "A veth pair is two network interfaces created together and permanently joined, like a cable with a plug at each end. One end, vethXXXX, is enslaved to the docker0 bridge in the host; the other is moved into the container's namespace, where it turns up as an ordinary eth0. Anything transmitted on one end is instantly received on the other, entirely inside the kernel — there is no wire, no card and no signal, only a very convincing impression of all three.",
+    history: "veth landed in kernel 2.6.24 in 2008 alongside network namespaces, contributed as part of the same container infrastructure effort, and became the universal plumbing of container networking. Setups that care intensely about performance later reached for alternatives — macvlan and ipvlan, which take fewer hops, or eBPF redirection that skips the bridge entirely.",
+    purpose: "To join two otherwise isolated network namespaces with something that looks and behaves exactly like an Ethernet link.",
     responsibilities: [
       'Deliver frames written on one end to its peer, in-kernel',
       'Allow one end to be moved into another namespace (ip link set netns)',
@@ -1940,10 +1940,10 @@ window.COMPONENTS = {
   },
   cnetns: {
     name: 'Container Network Namespace',
-    tagline: 'Inside the container: its own eth0 at 172.17.0.2, its own routes, its own firewall',
-    description: 'The container’s network namespace holds eth0 (the veth peer) with address 172.17.0.2/16, a default route via 172.17.0.1, and an isolated conntrack and iptables state. To the Node process at PID 1 inside, this looks like an entire machine with one NIC.',
-    history: 'This is network namespaces (2.6.24, 2008) applied: Docker (2013) creates one per container and wires it with veth; Kubernetes pods (2015) put multiple containers in one shared namespace so they share localhost, which is why sidecar patterns work at all.',
-    purpose: 'Give the container a complete, isolated network view so ports and routes never collide with the host or other containers.',
+    tagline: "Inside the container it looks like a whole machine: one eth0, one route, one firewall",
+    description: "This is the container's private view of networking. It holds a single interface, eth0 — really the far end of a veth pair — carrying the address 172.17.0.2/16, a default route pointing at the bridge at 172.17.0.1, and its own separate iptables and conntrack state. To the Node process running as PID 1 inside, this is indistinguishable from being alone on a small computer with exactly one network card.",
+    history: "This is network namespaces, merged in kernel 2.6.24 in 2008, put to work: Docker creates one per container from 2013 and wires it up with veth. Kubernetes went a step further in 2015 by putting all the containers in a pod into one shared namespace, so they can reach each other over localhost — which is the reason the sidecar pattern works at all.",
+    purpose: "To give the container a complete, isolated network of its own, so its ports and routes can never collide with the host's or another container's.",
     responsibilities: [
       'Own the container’s interfaces, addresses, routes, and neighbor cache',
       'Isolate listening ports — port 3000 inside is not port 3000 on the host',
@@ -1967,10 +1967,10 @@ window.COMPONENTS = {
   },
   appserver: {
     name: 'Node HTTP Server',
-    tagline: 'PID 1 in the container, listening on 0.0.0.0:3000, accept() in a loop',
-    description: 'The Node HTTP server holds a listening socket bound to 0.0.0.0:3000; libuv’s epoll reports a completed connection, accept() returns a new fd, and llhttp parses the request into headers and a body before Express/Nest routing begins. Backlog, keep-alive, and header limits all live here.',
-    history: 'Node’s http module has been core since 2009; its parser moved from Joyent’s http_parser (Ryan Dahl, 2009) to llhttp (Fedor Indutny, 2018) for maintainability and speed. Node 12+ tightened header/timeout defaults after a series of DoS CVEs (Slowloris-style, HTTP request smuggling), making headersTimeout and requestTimeout real settings people must know.',
-    purpose: 'Accept TCP connections and turn raw bytes into HTTP request/response objects for the framework above.',
+    tagline: "PID 1 inside the container, sitting on port 3000, waiting for someone to knock",
+    description: "This is the Node process at the end of the journey. It holds a listening socket bound to 0.0.0.0:3000; when libuv's epoll reports a completed connection, accept() returns a fresh file descriptor for it, and llhttp — a parser written to be both fast and strict — turns the incoming bytes into headers and a body before a single line of Express or Nest code runs. All the unglamorous safety settings live here too: how many pending connections may queue in the backlog, how long a client may take to send its headers, how large those headers may be.",
+    history: "Node's http module has been core since 2009. Its parser moved from Joyent's http_parser, written by Ryan Dahl in 2009, to llhttp from Fedor Indutny in 2018, for both maintainability and speed. From Node 12 onward the header and timeout defaults were tightened after a run of DoS CVEs — Slowloris-style attacks and HTTP request smuggling — which is why headersTimeout and requestTimeout became settings every operator has to know.",
+    purpose: "To accept raw TCP connections and hand the framework above a clean request and a response to fill in.",
     responsibilities: [
       'Bind and listen (backlog defaults to 511 in Node) and accept connections',
       'Parse requests with llhttp; enforce max header size and timeouts',
@@ -1994,10 +1994,10 @@ window.COMPONENTS = {
   },
   middleware: {
     name: 'Express/Nest Middleware',
-    tagline: 'A pipeline of functions, each holding the next one hostage',
-    description: 'Before the route handler runs, the request passes through middleware: helmet sets security headers, cors evaluates origin, body-parser reads and JSON-decodes the body, logging and tracing wrap the timing. Each calls next() — or ends the response and stops the chain.',
-    history: 'The pattern comes from Ruby’s Rack (2007) via Connect (TJ Holowaychuk, 2010) into Express (2010), which became the default Node web framework. NestJS (Kamil Mysliwiec, 2017) layered a structured lifecycle on top — guards, interceptors, pipes, filters — bringing Angular-style DI and ordering guarantees to the same underlying Express/Fastify plumbing.',
-    purpose: 'Compose cross-cutting concerns as ordered, reusable stages around every request.',
+    tagline: "A queue of functions, each one holding the next one's coat",
+    description: "Before your route handler ever runs, the request is passed hand to hand through a chain of small functions. helmet adds security headers, cors decides whether this origin is welcome, body-parser reads the body and decodes the JSON, and logging and tracing wrap timing around the whole affair. Each one either calls next() to pass the request along, or answers it there and then and stops the chain dead.",
+    history: "The pattern came to Node from Ruby's Rack in 2007, by way of Connect, written by TJ Holowaychuk in 2010, and then Express in 2010, which became the default Node web framework. NestJS, created by Kamil Mysliwiec in 2017, layered a structured lifecycle on top — guards, interceptors, pipes, filters — bringing Angular-style dependency injection and firm ordering guarantees to the same underlying Express or Fastify plumbing.",
+    purpose: "To handle the concerns that apply to every single request in one ordered, reusable pipeline, instead of scattering them through your handlers.",
     responsibilities: [
       'Parse bodies, cookies, and multipart uploads with size limits',
       'Authenticate/authorize (guards) and reject early with 401/403',
@@ -2020,10 +2020,10 @@ window.COMPONENTS = {
   },
   controller: {
     name: 'NestJS Controller',
-    tagline: 'Maps GET /products?limit=20 to a method, validates input, returns a DTO',
-    description: 'The controller declares routes via decorators (@Controller("products"), @Get()), extracts and validates query parameters through pipes (ValidationPipe with class-validator), calls the service, and returns a plain object that Nest serializes to JSON. It contains no business logic — routing and shape only.',
-    history: 'NestJS was created by Kamil Mysliwiec in 2017, importing Angular’s decorator-driven DI and module system to the server. It runs on Express by default (Fastify optional) and standardized what had been ad-hoc Express project structure into modules, providers, and controllers with testability designed in.',
-    purpose: 'Translate HTTP into typed method calls and back, keeping transport concerns out of the domain layer.',
+    tagline: "Maps a URL to a method, checks the input is sane, and hands back an object",
+    description: 'The controller is the thin translation layer between HTTP and your actual code. Decorators declare the mapping — @Controller("products") and @Get() together say that GET /products lands here — a ValidationPipe backed by class-validator checks and converts the query parameters into the shape you asked for, and then it calls a service and returns a plain object that Nest serializes to JSON. Deliberately, it contains no business logic at all: only routing and shape.',
+    history: "NestJS was created by Kamil Mysliwiec in 2017, importing Angular's decorator-driven dependency injection and module system to the server. It runs on Express by default, with Fastify as an option, and its real contribution was turning what had been ad-hoc Express project structure into a standard arrangement of modules, providers and controllers, with testability designed in from the start.",
+    purpose: "To turn an HTTP request into an ordinary typed method call and the result back into a response, keeping transport concerns out of the domain.",
     responsibilities: [
       'Declare route paths, methods, and parameter bindings via decorators',
       'Validate and coerce input with pipes (DTOs + class-validator)',
@@ -2046,10 +2046,10 @@ window.COMPONENTS = {
   },
   service: {
     name: 'Service Layer',
-    tagline: 'Where the actual business rules live — injectable, testable, transport-agnostic',
-    description: 'The @Injectable() service holds the domain logic: which tours are visible, how pagination is bounded, what caching applies, and it calls Prisma for persistence. It knows nothing about HTTP, which is exactly why it can be unit-tested without a server.',
-    history: 'The service/repository split descends from Domain-Driven Design (Eric Evans, 2003) and layered architecture patterns (Fowler, "Patterns of Enterprise Application Architecture", 2002). Nest made it idiomatic in Node by shipping a real DI container, so services are constructor-injected and trivially mockable in tests.',
-    purpose: 'Encapsulate business behavior in one place, independent of how it is invoked.',
+    tagline: "Where the actual business rules live — no HTTP allowed past this door",
+    description: "The service is the part that knows what your application means: which tours are visible, how large a page of results may be, what gets cached, what is simply not allowed. It calls Prisma when it needs data, and it is marked @Injectable() so Nest can build it and hand it its dependencies. It knows nothing whatsoever about HTTP, which is precisely why you can unit-test it without starting a server.",
+    history: "Separating services from repositories descends from Domain-Driven Design, in Eric Evans' 2003 book, and from the layered architecture patterns Martin Fowler catalogued in Patterns of Enterprise Application Architecture in 2002. Nest made the idea idiomatic in Node by shipping a real DI container, so services arrive through constructors and can be swapped for fakes in a test without ceremony.",
+    purpose: "To keep the rules of the business in one place, entirely independent of how anyone happens to be calling them.",
     responsibilities: [
       'Implement domain rules, authorization decisions, and invariants',
       'Orchestrate repositories/Prisma calls and transactions',
@@ -2072,10 +2072,10 @@ window.COMPONENTS = {
   },
   prisma: {
     name: 'Prisma ORM',
-    tagline: 'Typed schema in, SQL out — with a Rust engine doing the talking',
-    description: 'prisma.tour.findMany({ take: 20 }) is translated by the generated client into SQL (SELECT ... LIMIT 20), executed through the query engine, and mapped back into typed objects. The schema file is the single source of truth for types, migrations, and the client API.',
-    history: 'Prisma began as Graphcool (2016), pivoted to Prisma 1 (2018), and shipped the modern Prisma 2 architecture in 2020 — dropping the proxy server for a client library with a Rust query engine. Prisma 5 (2023) and later versions moved toward a lighter engine and eventually a WASM/TypeScript path, reducing binary-size complaints in serverless deployments.',
-    purpose: 'Give TypeScript applications a type-safe, migration-driven data access layer without hand-writing SQL for common paths.',
+    tagline: "You describe your data once; it writes the SQL and the TypeScript types for you",
+    description: "Prisma sits between your code and the database. You write prisma.tour.findMany({ take: 20 }), and the generated client turns it into real SQL — a SELECT with a LIMIT 20 — sends it through a query engine written in Rust, and maps the rows that come back into typed objects. The schema.prisma file is the single source of truth: your migrations, your client's API and your TypeScript types all descend from it.",
+    history: "Prisma began life as Graphcool in 2016, became Prisma 1 in 2018, and in 2020 shipped the architecture known as Prisma 2 — dropping the separate proxy server in favor of a client library backed by a Rust query engine. Prisma 5 in 2023 and the versions after it moved toward a lighter engine and eventually a WASM and TypeScript path, answering long-standing complaints about binary size in serverless deployments.",
+    purpose: "To give a TypeScript application type-safe, migration-driven access to its data without hand-writing SQL for every ordinary query.",
     responsibilities: [
       'Generate a typed client from schema.prisma',
       'Translate query builder calls into SQL and map rows to objects',
@@ -2099,10 +2099,10 @@ window.COMPONENTS = {
   },
   pool: {
     name: 'Connection Pool',
-    tagline: 'Reuses expensive PostgreSQL connections instead of paying for them per request',
-    description: 'The pool keeps a fixed set of authenticated TCP connections to 10.0.0.12:5432 and lends them out per query. Establishing a PostgreSQL connection means TCP, TLS, auth, and a forked backend process — 10-50ms and real memory — so reuse is not optional at scale.',
-    history: 'Connection pooling entered mainstream practice with J2EE DataSources (late 1990s). PostgreSQL’s process-per-connection model made external poolers essential: PgBouncer (Skype, 2007) and pgpool-II became standard infrastructure, and the serverless era (2018+) revived the problem in a new shape with per-instance pools multiplying against a fixed max_connections.',
-    purpose: 'Amortize connection setup cost and bound concurrent database load.',
+    tagline: "Keeps a few expensive database connections warm rather than buying a new one each time",
+    description: "Connecting to PostgreSQL is not cheap: a TCP handshake, TLS, authentication, and then the server forks an entire operating system process just for you — 10 to 50 milliseconds and real memory, every single time. The pool opens a fixed set of these connections to 10.0.0.12:5432 once and lends them out per query, taking each one back when the query finishes. When they are all busy your query waits in line, which is exactly where pool timeout errors come from.",
+    history: "Connection pooling entered mainstream practice with J2EE DataSources in the late 1990s. PostgreSQL's process-per-connection model made external poolers essential: PgBouncer, written at Skype in 2007, and pgpool-II became standard infrastructure. The serverless era from 2018 onward revived the whole problem in a new shape, as hundreds of short-lived instances each opened their own pool against one fixed max_connections.",
+    purpose: "To pay the cost of connecting a handful of times instead of once per request, and to put a firm ceiling on how much work the database is asked to do at once.",
     responsibilities: [
       'Maintain min/max idle connections and hand them out per query',
       'Queue requests when all connections are busy (the source of pool timeouts)',
@@ -2126,10 +2126,10 @@ window.COMPONENTS = {
   },
   postgres: {
     name: 'PostgreSQL',
-    tagline: 'One backend process per connection, MVCC for concurrency, and 35 years of correctness',
-    description: 'PostgreSQL 16 at 10.0.0.12:5432 accepts our connection, forks a dedicated backend (PID 8842), authenticates per pg_hba.conf, and processes the extended-protocol query. MVCC lets readers and writers proceed without blocking each other — every row version carries the transaction IDs that created and deleted it.',
-    history: 'Michael Stonebraker’s Ingres (Berkeley, 1974) begat POSTGRES (1986), which gained SQL and became Postgres95, then PostgreSQL 6.0 (1996) under an open community. Stonebraker won the 2014 Turing Award for this lineage. Major milestones: WAL (7.1, 2001), point-in-time recovery (8.0), streaming replication (9.0, 2010), JSONB (9.4, 2014), parallel query (9.6), logical replication (10).',
-    purpose: 'Store and query relational data with ACID guarantees, rich types, and extensibility.',
+    tagline: "A process per connection, snapshots instead of locks, and 35 years of caring about correctness",
+    description: "PostgreSQL is the database at the end of the road. When our connection reaches PostgreSQL 16 at 10.0.0.12:5432 it forks a dedicated backend process, PID 8842, to serve it, checks the rules in pg_hba.conf to decide whether we are allowed in, and runs the query over the extended wire protocol. Its central trick is MVCC: instead of locking rows it keeps multiple versions of each one, tagged with the transaction that created it and the transaction that deleted it, so readers never block writers and writers never block readers.",
+    history: "The lineage runs from Michael Stonebraker's Ingres at Berkeley in 1974 to POSTGRES in 1986, which gained SQL and became Postgres95, then PostgreSQL 6.0 in 1996 under an open community; Stonebraker won the 2014 Turing Award for the work. The milestones read like a history of the craft: WAL in 7.1 in 2001, point-in-time recovery in 8.0, streaming replication in 9.0 in 2010, JSONB in 9.4 in 2014, parallel query in 9.6, and logical replication in 10.",
+    purpose: "To store data and answer questions about it with guarantees you can build a business on: correctness, durability, rich types, and room to extend.",
     responsibilities: [
       'Fork a backend per connection; authenticate via pg_hba.conf rules',
       'Parse, plan, and execute SQL over the extended wire protocol',
@@ -2153,10 +2153,10 @@ window.COMPONENTS = {
   },
   planner: {
     name: 'Query Planner',
-    tagline: 'Cost-based optimizer: turns declarative SQL into one chosen execution strategy',
-    description: 'The planner rewrites the parse tree, enumerates join orders and access paths, and estimates each plan’s cost from pg_statistic histograms and n_distinct values. SELECT ... LIMIT 20 on a small table usually wins with a sequential scan — the index everyone expects would be slower.',
-    history: 'Cost-based optimization was invented for IBM System R (Selinger et al., 1979) — the paper that defined dynamic-programming join ordering and selectivity estimation still used today. PostgreSQL added a genetic algorithm (GEQO) for large join counts, extended statistics in 10 (2017), and parallel-aware costing in 9.6.',
-    purpose: 'Find a good-enough execution plan quickly, since finding the optimal one is exponential.',
+    tagline: "You say what you want; it decides, by pricing the options, how to actually get it",
+    description: "SQL says nothing at all about how to find data — only what you want back. Inventing the how is the planner's job. It rewrites the parse tree, considers different join orders and different ways to reach rows, and prices each candidate using statistics it keeps in pg_statistic: how many rows, how many distinct values, how they are distributed. Counter-intuitively, for our SELECT with LIMIT 20 over a small table it will usually choose to read the whole table sequentially, because the index everybody expects it to use would genuinely be slower.",
+    history: "Cost-based optimization was invented for IBM's System R by Selinger and colleagues in 1979, and that paper's ideas — dynamic-programming join ordering and selectivity estimation — are still in use today. PostgreSQL added a genetic algorithm, GEQO, for queries with too many joins to enumerate, extended statistics in version 10 in 2017, and parallel-aware costing in 9.6.",
+    purpose: "To find a good-enough plan quickly, because searching for the perfect one takes longer than simply running a decent one.",
     responsibilities: [
       'Estimate row counts and selectivity from collected statistics',
       'Choose access paths: seq scan, index scan, index-only, bitmap heap scan',
@@ -2180,10 +2180,10 @@ window.COMPONENTS = {
   },
   executor: {
     name: 'Query Executor',
-    tagline: 'Pulls tuples through the plan tree, one node at a time',
-    description: 'The executor walks the chosen plan as a tree of nodes, each implementing ExecProcNode to produce the next tuple on demand — a classic Volcano iterator model. It requests pages from shared buffers, applies MVCC visibility rules per tuple, filters, sorts, and hands rows to the wire protocol encoder.',
-    history: 'The pull-based iterator model comes from Graefe’s Volcano system (1990-94). PostgreSQL added JIT compilation of expressions via LLVM in 11 (2018) to cut per-tuple interpretation overhead, and parallel workers in 9.6 (2016) so plan nodes can fan out across processes.',
-    purpose: 'Execute the plan efficiently, respecting transaction visibility and memory limits.',
+    tagline: "Pulls rows up through the plan, one at a time, only when asked",
+    description: "The executor runs the plan the planner chose. That plan is a tree, and every node knows how to produce its next tuple on demand through ExecProcNode, pulling from its children as needed — a scan node reads pages, a sort node gathers and orders, a join node matches. Along the way it fetches pages from shared buffers, checks each row's creation and deletion transaction ids against the snapshot to decide whether this version should be visible at all, and hands the survivors on to be encoded for the wire.",
+    history: "The pull-based iterator model comes from Goetz Graefe's Volcano system, built between 1990 and 1994, which is why plans read as trees of nodes. PostgreSQL added parallel workers in 9.6 in 2016 so a single plan node could fan out across processes, and JIT compilation of expressions via LLVM in version 11 in 2018 to cut the cost of interpreting the same expression millions of times over.",
+    purpose: "To carry out the plan efficiently, honoring transaction visibility and staying inside its memory budget.",
     responsibilities: [
       'Drive the plan tree node by node, materializing tuples lazily',
       'Apply MVCC visibility checks (xmin/xmax vs the snapshot) per tuple',
@@ -2207,10 +2207,10 @@ window.COMPONENTS = {
   },
   sharedbuf: {
     name: 'Shared Buffers',
-    tagline: 'PostgreSQL’s own page cache — 8KB pages, clock-sweep eviction, mmap-free by design',
-    description: 'shared_buffers is a fixed shared-memory region holding 8KB table and index pages. The executor asks for a page by buffer tag; a hit costs a memory read, a miss costs a read from the OS page cache or disk. Dirty pages linger until the checkpointer or bgwriter writes them out.',
-    history: 'PostgreSQL deliberately keeps a modest buffer cache and relies on the OS page cache as a second tier — an unusual choice versus Oracle or MySQL/InnoDB, which manage nearly all memory themselves. The clock-sweep replacement algorithm replaced simple LRU in 8.1 (2005) to reduce contention on hot buffers.',
-    purpose: 'Keep hot pages in shared memory so most queries never touch storage.',
+    tagline: "PostgreSQL's own memory of the disk — 8KB pages, and a clock hand deciding what to forget",
+    description: "shared_buffers is a fixed region of shared memory holding recently used 8KB pages of tables and indexes. When the executor needs a page it asks here first, by buffer tag: a hit costs a memory read, a miss means going out to the OS page cache or the disk itself. Pages that have been modified are not written out immediately — they sit here dirty until the checkpointer or the background writer flushes them, which is only safe because the write-ahead log already recorded what changed.",
+    history: "PostgreSQL deliberately keeps a modest buffer cache and leans on the operating system's page cache as a second tier — an unusual choice next to Oracle or MySQL's InnoDB, which prefer to manage nearly all the machine's memory themselves. Its clock-sweep replacement algorithm, which approximates least-recently-useful by sweeping a hand around the buffers, replaced a simple LRU in version 8.1 in 2005 to reduce contention on the hottest pages.",
+    purpose: "To keep the pages your queries actually use in memory, so most queries never touch storage at all.",
     responsibilities: [
       'Cache 8KB pages with pin counts and usage counters',
       'Evict via clock-sweep when the free list is empty',
@@ -2234,10 +2234,10 @@ window.COMPONENTS = {
   },
   wal: {
     name: 'Write-Ahead Log',
-    tagline: 'Log the change before the page — the rule that makes crash recovery possible',
-    description: 'Every modification is described in a WAL record written and fsynced to pg_wal before the corresponding data page may be written. On COMMIT the transaction waits for its WAL flush; on crash, replay from the last checkpoint reconstructs everything. WAL also feeds streaming replication and PITR.',
-    history: 'Write-ahead logging was formalized by ARIES (Mohan et al., IBM, 1992), the recovery algorithm behind nearly every modern database. PostgreSQL gained WAL in 7.1 (2001), replacing full-file syncing; PITR came in 8.0 (2005), streaming replication in 9.0 (2010), and logical decoding in 9.4 (2014).',
-    purpose: 'Guarantee durability and recoverability without paying random-write costs on every commit.',
+    tagline: "Write down what you are about to do before you do it — the rule that makes crash recovery possible",
+    description: "Before any data page may be written to disk, a record describing the change is written to the write-ahead log in pg_wal and flushed to storage. That is the whole rule, and everything else follows from it: a COMMIT waits for its WAL record to reach the disk before it answers you, and after a crash the database replays the log from the last checkpoint and reconstructs exactly what was going on. The same stream is then reused for streaming replication and for restoring the database to any chosen moment in the past.",
+    history: "Write-ahead logging was formalized as ARIES by Mohan and colleagues at IBM in 1992 — the recovery algorithm behind very nearly every modern database. PostgreSQL gained WAL in 7.1 in 2001, replacing the earlier approach of syncing whole files; point-in-time recovery followed in 8.0 in 2005, streaming replication in 9.0 in 2010, and logical decoding in 9.4 in 2014.",
+    purpose: "To guarantee that a committed transaction survives a power cut, without paying for a random write to every affected page at the moment of commit.",
     responsibilities: [
       'Record physical/logical changes as sequential WAL records with LSNs',
       'Flush and fsync WAL at commit (synchronous_commit) before acknowledging',
@@ -2261,10 +2261,10 @@ window.COMPONENTS = {
   },
   disk: {
     name: 'Storage (block layer + SSD)',
-    tagline: 'The last stop: where durability finally becomes physical',
-    description: 'Below the filesystem sits the block layer with its multi-queue scheduler, feeding an NVMe SSD whose controller maps logical blocks to flash pages and manages wear. An fsync from WAL must reach non-volatile media — a power-loss-protected cache or the flash itself — or the durability promise is fiction.',
-    history: 'Linux I/O schedulers evolved from the elevator through CFQ/deadline to blk-mq (2013, Jens Axboe), which matched multi-queue NVMe hardware; single-queue schedulers were removed in 5.0 (2019). NVMe (spec 1.0, 2011) replaced AHCI’s single 32-command queue with 64k queues of 64k commands. io_uring (5.1, 2019) finally gave userspace true async file I/O.',
-    purpose: 'Persist bytes durably and serve reads with latency low enough that the database above stays fast.',
+    tagline: "The last stop, where a promise finally becomes physics",
+    description: "Beneath the filesystem sits the block layer, queueing and scheduling requests across many hardware queues, and beneath that an NVMe SSD whose controller maps the logical blocks the OS asks for onto real flash pages while spreading wear evenly across them. This is where durability is kept or broken: when WAL calls fsync, the data must genuinely reach non-volatile media — the flash itself, or a cache with power-loss protection — or the promise was only ever a rumor.",
+    history: "Linux's I/O schedulers evolved from the original elevator through CFQ and deadline to blk-mq in 2013, from Jens Axboe, which finally matched the multi-queue NVMe hardware that had arrived; the single-queue schedulers were removed in 5.0 in 2019. NVMe, whose 1.0 spec landed in 2011, replaced AHCI's single 32-command queue with 64k queues of 64k commands each. io_uring, added in 5.1 in 2019, at last gave userspace genuinely asynchronous file I/O.",
+    purpose: "To hold bytes safely through a power cut, and return them quickly enough that the database above stays fast.",
     responsibilities: [
       'Queue, merge, and schedule block requests (blk-mq)',
       'Honor flush/FUA semantics so fsync means what it says',
