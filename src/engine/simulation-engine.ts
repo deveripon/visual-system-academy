@@ -1,6 +1,9 @@
 import type { NodeId, Step, StepMode } from '@/data/types';
 import { TREE, type ContainerId, type TreeId, type TreeNodeSpec } from '@/scene/componentTree';
 
+// Consumers should only ever need to import from the engine, not from both modules.
+export type { TreeId, ContainerId, TreeNodeSpec };
+
 /**
  * The simulation engine — the most important module in the project.
  *
@@ -118,6 +121,8 @@ export interface Disclosure {
   opened: Set<TreeId>;
   /** Rooms the camera has actually been inside. */
   entered: Set<TreeId>;
+  /** Has been the focus of a step — i.e. the learner has been taught this one. */
+  visited: Set<TreeId>;
 }
 
 /**
@@ -128,11 +133,13 @@ export function foldDisclosure(tree: Tree, timeline: Step[], upTo: number): Disc
   const seen = new Set<TreeId>();
   const opened = new Set<TreeId>();
   const entered = new Set<TreeId>();
+  const visited = new Set<TreeId>();
   const last = Math.min(upTo, timeline.length - 1);
 
   for (let i = 0; i <= last; i++) {
     const focus = timeline[i]?.node as TreeId | undefined;
     if (!focus) continue;
+    visited.add(focus);
 
     const path = pathTo(tree, focus);
     for (const id of path) {
@@ -151,7 +158,7 @@ export function foldDisclosure(tree: Tree, timeline: Step[], upTo: number): Disc
     if (parent) for (const sib of tree.children[parent] ?? []) seen.add(sib);
   }
 
-  return { seen, opened, entered };
+  return { seen, opened, entered, visited };
 }
 
 export interface Scene {
@@ -166,6 +173,8 @@ export interface Scene {
   visible: TreeId[];
   /** Boxes in `visible` that are open (the focus, plus anything already entered). */
   expanded: TreeId[];
+  /** Boxes in `visible` the learner has already been taught — rendered with a tick. */
+  done: TreeId[];
   /** Boxes in `visible` that are not the focus — rendered dimmed. */
   siblings: TreeId[];
   /** Advisory gating: shown dimmed with a hint, never disabled. */
@@ -199,6 +208,7 @@ export function resolveScene(tree: Tree, timeline: Step[], index: number): Scene
 
   const disclosure = foldDisclosure(tree, timeline, index);
   const expanded = visible.filter((id) => id === focus || disclosure.entered.has(id));
+  const done = visible.filter((id) => id !== focus && disclosure.visited.has(id));
   const siblings = visible.filter((id) => id !== focus);
   // Advisory only: a box whose parent room the learner has never entered.
   const unmet = visible.filter((id) => !disclosure.seen.has(id));
@@ -211,6 +221,7 @@ export function resolveScene(tree: Tree, timeline: Step[], index: number): Scene
     room,
     visible,
     expanded,
+    done,
     siblings,
     unmet,
     action,

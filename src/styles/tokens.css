@@ -1,69 +1,97 @@
 /**
  * Visual Systems Academy — design tokens.
- * Direction: "mission-control instrument" (see docs/DESIGN_SYSTEM.md).
- * Mode accents are semantic: CPU privilege / packet location is always color-keyed.
+ *
+ * Direction: "paper". A light, quiet ground with soft pastel nodes and dark ink, so the
+ * eye goes to the words rather than to the glow. The previous neon-on-black palette read
+ * as a monitoring dashboard; this reads as something you learn from.
+ *
+ * Mode colour is still semantic — it encodes CPU privilege and packet location — but it
+ * is now a soft FILL plus a saturated INK instead of a luminous stroke.
+ *
+ * The `legacy names` block at the bottom keeps every v1 component (control bar, right
+ * rail, panels, chapter dock, map canvas) rendering correctly in the new palette without
+ * touching 3,700 lines of markup.
  */
 
 :root {
-  /* base field */
-  --bg-0: #06080f;
-  --bg-1: #0a0e1a;
-  --surface: rgba(148, 163, 184, 0.06);
-  --surface-2: rgba(148, 163, 184, 0.1);
-  --border: rgba(148, 163, 184, 0.14);
-  --border-strong: rgba(148, 163, 184, 0.28);
-  --text-1: #e6edf6;
-  --text-2: #9aa7ba;
-  --text-3: #5c6a80;
+  /* ground */
+  --bg-0: #fbfaf9; /* page */
+  --bg-1: #ffffff; /* cards */
+  --bg-2: #f5f4f2; /* inset wells, code blocks */
 
-  /* mode accents */
-  --mode-user: #4cc2ff;
-  --mode-kernel: #ff4d6d;
-  --mode-hw: #b58cff;
-  --mode-net: #3ddc97;
-  --mode-remote: #ffb347;
+  /* ink */
+  --ink-1: #1c1b19;
+  --ink-2: #57534e;
+  --ink-3: #a8a29e;
 
-  --ok: #3ddc97;
-  --warn: #ffb347;
-  --err: #ff4d6d;
+  /* lines */
+  --line: #e7e5e4;
+  --line-strong: #d6d3d1;
 
-  /* typography */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI',
-    sans-serif;
-  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+  /* mode: soft fill + saturated ink, always used as a pair */
+  --user-fill: #dbeafe;
+  --user-ink: #1d4ed8;
+  --kernel-fill: #fecdd3;
+  --kernel-ink: #be123c;
+  --hw-fill: #ede9fe;
+  --hw-ink: #6d28d9;
+  --net-fill: #d1fae5;
+  --net-ink: #047857;
+  --remote-fill: #fef3c7;
+  --remote-ink: #b45309;
 
-  /* glass */
-  --glass-blur: blur(14px) saturate(1.3);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --ok: #047857;
+  --warn: #b45309;
+  --err: #be123c;
 
-  /* radii */
+  /* type */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* form */
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
+  --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04), 0 8px 24px -16px rgba(28, 27, 25, 0.18);
+  --shadow-lift: 0 2px 4px rgba(28, 27, 25, 0.06), 0 16px 40px -20px rgba(28, 27, 25, 0.28);
 
   /* motion */
-  --t-micro: 150ms;
-  --t-ui: 250ms;
+  --t-micro: 140ms;
+  --t-ui: 240ms;
+
+  /* ── legacy names, repointed at the paper palette ──────────────────────── */
+  --surface: #ffffff;
+  --surface-2: #f5f4f2;
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --text-1: var(--ink-1);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+  --mode-user: var(--user-ink);
+  --mode-kernel: var(--kernel-ink);
+  --mode-hw: var(--hw-ink);
+  --mode-net: var(--net-ink);
+  --mode-remote: var(--remote-ink);
+  --glass-blur: blur(10px) saturate(1.05);
+  --glass-shadow: var(--shadow-card);
 }
 
-/* Reusable glass surface */
-.glass {
-  background: var(--surface);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: var(--glass-shadow);
-}
-
-/* Small mono caps label — the instrument voice */
+/* A small mono caps label — used for field names and metadata. */
 .instrument-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--ink-3);
+}
+
+/* Panels and overlays inherited from v1 use this. On paper it is a plain white card. */
+.glass {
+  background: var(--bg-1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
 }

@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { MODE_LABEL, modeColor } from '@/scene/modeColors';
 import { useCurrentStep } from '@/state/selectors';
+import { useSimStore } from '@/state/store';
 import { ExplainPanel } from './ExplainPanel';
 import { OsStatePanel } from './OsStatePanel';
 import { PacketInspector } from './PacketInspector';
@@ -28,6 +29,7 @@ const TABS: { id: Tab; label: string }[] = [
  */
 export function RightRail() {
   const step = useCurrentStep();
+  const storyMode = useSimStore((s) => s.view === 'story');
   const [tab, setTab] = useState<Tab>('explain');
   const [expanded, setExpanded] = useState(false);
   const tabsId = useId();
@@ -59,7 +61,12 @@ export function RightRail() {
       {/* ── desktop ─────────────────────────────────────────────────────────── */}
       <div className="hidden min-h-0 flex-1 flex-col lg:flex">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <ExplainPanel />
+          {/*
+            In story mode the explanation already lives on the card under its node, so
+            repeating it here would be the same words twice on one screen. The rail keeps
+            what the card does not carry: the packet and the machine state.
+          */}
+          {!storyMode && <ExplainPanel />}
           <PacketInspector />
         </div>
         {/*

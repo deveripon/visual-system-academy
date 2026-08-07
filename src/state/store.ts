@@ -41,6 +41,8 @@ export interface SimState {
   quizMode: boolean;
 
   // ── ui ──────────────────────────────────────────────────────────────────
+  /** How the journey is drawn: the architecture map, or the storyboard. */
+  view: 'map' | 'story';
   layerView: LayerView | 'free';
   dossierNodeId: NodeId | null;
   searchOpen: boolean;
@@ -70,6 +72,7 @@ export interface SimState {
   answerQuiz(stepId: string, choice: number): void;
   setQuizMode(b: boolean): void;
 
+  setView(v: 'map' | 'story'): void;
   setLayerView(v: LayerView | 'free'): void;
   openDossier(id: NodeId | null): void;
   setSearchOpen(b: boolean): void;
@@ -118,6 +121,7 @@ export const useSimStore = create<SimState>((set, get) => ({
   answers: {},
   quizMode: true,
 
+  view: 'story',
   layerView: 'free',
   dossierNodeId: null,
   searchOpen: false,
@@ -335,6 +339,10 @@ export const useSimStore = create<SimState>((set, get) => ({
   setQuizMode(quizMode) {
     set({ quizMode });
     if (!quizMode && get().status === 'awaiting-quiz') set({ status: 'paused' });
+  },
+
+  setView(view) {
+    set({ view });
   },
 
   setLayerView(layerView) {

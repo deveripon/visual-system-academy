@@ -74,6 +74,7 @@ export function ControlBar() {
   const speed = useSimStore((s) => s.speed);
   const autoplay = useSimStore((s) => s.autoplay);
   const quizMode = useSimStore((s) => s.quizMode);
+  const view = useSimStore((s) => s.view);
   const prodMode = useSimStore((s) => s.prodMode);
   const stepIndex = useSimStore((s) => s.stepIndex);
   const total = useStepCount();
@@ -83,7 +84,13 @@ export function ControlBar() {
   const chapter = CHAPTERS.find((c) => c.n === step?.chapter);
 
   return (
-    <header className="relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_oklab,var(--bg-1)_92%,transparent)] px-3 backdrop-blur-xl">
+    /*
+     * Deliberately NOT a scroll container. Making it one meant that clicking Next — a
+     * child of this header — let the browser scroll the focused button into view, which
+     * dragged the wordmark off the left edge. Low-priority items hide at narrow widths
+     * instead.
+     */
+    <header className="relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-1)] px-3 [&>*]:shrink-0">
       {/* identity */}
       <div className="flex items-center gap-2.5 pr-1">
         <div
@@ -94,11 +101,9 @@ export function ControlBar() {
             <path d="M13 2 3 14h7l-1 8 11-13h-7l0-7z" />
           </svg>
         </div>
-        <div className="hidden leading-tight sm:block">
-          <div className="text-[13px] font-semibold tracking-tight text-[var(--text-1)]">
-            Packet Odyssey
-          </div>
-          <div className="instrument-label">visual systems academy</div>
+        {/* Wordmark only where there is room — it is the first thing worth losing. */}
+        <div className="hidden text-[13px] font-semibold tracking-tight text-[var(--text-1)] 2xl:block">
+          Packet Odyssey
         </div>
       </div>
 
@@ -144,6 +149,25 @@ export function ControlBar() {
           ))}
         </select>
       </label>
+
+      {/* how the journey is drawn */}
+      <div className="flex items-center gap-0.5 rounded-lg border border-[var(--border)] p-0.5">
+        {(['story', 'map'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => useSimStore.getState().setView(v)}
+            aria-pressed={view === v}
+            className="rounded-md px-2.5 py-1 font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-wider transition-colors"
+            style={{
+              background: view === v ? 'var(--user-fill)' : 'transparent',
+              color: view === v ? 'var(--user-ink)' : 'var(--text-3)',
+            }}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
 
       {/* toggles */}
       <div className="flex items-center gap-1">

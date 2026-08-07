@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { CHAPTERS, type OsState, type Step } from '@/data/types';
 import { mergeProd } from '@/engine/scenarioEngine';
+import { buildTree, resolveScene, type Scene } from '@/engine/simulation-engine';
 import { foldOsState } from './foldOsState';
 import { timelineFor, useSimStore } from './store';
 
@@ -85,4 +86,23 @@ export function useChapterSteps(chapter: number | null): { step: Step; index: nu
 
 export function useStepCount(): number {
   return useActiveTimeline().length;
+}
+
+/** The tree is static content — build it once for the lifetime of the app. */
+export const TREE_INSTANCE = buildTree();
+
+/**
+ * The resolved room the learner is standing in: focus, breadcrumb, which boxes are on
+ * screen, which are open. Everything the renderer needs, derived — never authored.
+ * See docs/ENGINE_V2.md §6.
+ */
+export function useScene(): Scene | null {
+  const timeline = useActiveTimeline();
+  const index = useSimStore((s) => s.stepIndex);
+  const prodMode = useSimStore((s) => s.prodMode);
+  return useMemo(() => {
+    const scene = resolveScene(TREE_INSTANCE, timeline, index);
+    if (!scene) return null;
+    return prodMode ? { ...scene, step: mergeProd(scene.step) } : scene;
+  }, [timeline, index, prodMode]);
 }

@@ -97,3 +97,23 @@ Record anything the next agent would otherwise have to rediscover.
   stations) and `netstack` (12). Both are rooms whose breadth IS the lesson — L0 shows the
   whole trip once, and ch8 walks the entire network stack. Splitting them would trade one
   honest wide room for constant climbing.
+- 2026-08-04 — PALETTE: the neon-on-black theme read as a monitoring dashboard, not
+  something you learn from. Repointed to "paper": light ground, soft pastel mode FILLS
+  with saturated INK, dark text. The legacy token names (--text-1, --surface, --mode-*)
+  are aliased to the new palette in tokens.css so all 3,700 lines of v1 markup render
+  correctly without being rewritten.
+- 2026-08-04 — TWO VIEWS, one journey: `store.view` is 'story' | 'map'. Story is the
+  storyboard (node chips chained left-to-right, explanation card under each); map is the
+  original architecture canvas. Both read the same timeline and store, so switching never
+  loses your place. Story is the default; the GSAP director only mounts for map.
+- 2026-08-04 — In story mode RightRail hides ExplainPanel: the explanation is already on
+  the card under its node, and printing the same words twice on one screen was half the
+  perceived clutter. The rail keeps the packet and machine state, which the card lacks.
+- 2026-08-04 — FlowCanvas stations need `shrink-0`. Without it flexbox crushed every
+  station to a sliver once the strip was long and the 380px cards overlapped on top of
+  each other — the single worst-looking bug of the rebuild.
+- 2026-08-04 — One chip per NODE, not per step: a chapter with four beats on `appcode`
+  drew "Your Code" four times. Continuation beats render their card under the same chip.
+- 2026-08-04 — The control bar must NOT be a scroll container. When it was, clicking Next
+  (its own child) let the browser scroll the focused button into view and dragged the
+  wordmark off the left edge. Low-priority items hide at narrow widths instead.
