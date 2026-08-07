@@ -49,8 +49,9 @@ export function MemoryMapWidget({ mem }: { mem: MemSpace }) {
 
   return (
     <div>
+      {/* Beginner hint rendered right under the header, before the bands. */}
       <div className="flex items-baseline gap-2">
-        <h3 className="instrument-label">memory map</h3>
+        <h3 className="instrument-label">memory (RAM)</h3>
         <span
           className="ml-auto font-mono text-[10px] font-semibold"
           style={{
@@ -64,6 +65,10 @@ export function MemoryMapWidget({ mem }: { mem: MemSpace }) {
           {crossing ? 'CROSSING' : mem === 'kernel' ? 'KERNEL SPACE' : 'USER SPACE'}
         </span>
       </div>
+      <p className="mt-0.5 text-[10.5px] leading-snug text-t3">
+        One RAM, two territories: your program&rsquo;s half and the kernel&rsquo;s half.
+        Data moving between them is a real copy — watch for the crossing.
+      </p>
 
       <div className="mt-1.5 flex flex-col gap-1">
         <Band

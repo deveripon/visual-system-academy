@@ -5,6 +5,7 @@ import { ControlBar } from '@/components/controls/ControlBar';
 import { CanvasViewport } from '@/components/canvas/CanvasViewport';
 import { AnimationDirector } from '@/components/canvas/AnimationDirector';
 import { FlowCanvas } from '@/components/flow/FlowCanvas';
+import { StoryAutoplay } from '@/components/flow/StoryAutoplay';
 import { RightRail } from '@/components/panels/RightRail';
 import { ChapterTimeline } from '@/components/timeline/ChapterTimeline';
 import { BranchCard } from '@/components/overlays/BranchCard';
@@ -49,7 +50,8 @@ export function SimulatorShell() {
   const isMap = view === 'map';
 
   return (
-    <div className="relative z-10 flex h-full flex-col">
+    // w-full + overflow-clip: nothing inside may ever widen the shell past the window.
+    <div className="relative z-10 flex h-full w-full max-w-full flex-col overflow-clip">
       <ControlBar />
 
       <main className="relative flex min-h-0 flex-1 lg:flex-row">
@@ -61,7 +63,10 @@ export function SimulatorShell() {
               <LayerViewSwitcher />
             </>
           ) : (
-            <FlowCanvas />
+            <>
+              <FlowCanvas />
+              <StoryAutoplay />
+            </>
           )}
           <BranchCard />
           <QuizCard />

@@ -105,7 +105,7 @@ export function TcpStateMachine({ state }: { state: string }) {
   return (
     <div>
       <div className="flex items-baseline gap-2">
-        <h3 className="instrument-label">socket state</h3>
+        <h3 className="instrument-label">connection (socket) state</h3>
         <span
           className="ml-auto truncate font-mono text-[10.5px] font-semibold"
           style={{ color: 'var(--mode-net)' }}
@@ -113,6 +113,10 @@ export function TcpStateMachine({ state }: { state: string }) {
           {state}
         </span>
       </div>
+      <p className="mt-0.5 text-[10.5px] leading-snug text-t3">
+        A connection climbs these states as it opens and closes — the lit chip is where
+        ours stands right now. The small row is the server&rsquo;s side.
+      </p>
 
       <div className="mt-1.5 rounded-[var(--r-sm)] border border-line bg-surface px-2.5 py-2">
         <Path states={ACTIVE_PATH} currentIndex={activeIndex} />

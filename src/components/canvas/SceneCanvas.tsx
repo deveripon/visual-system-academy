@@ -37,7 +37,10 @@ export const SceneCanvas = memo(function SceneCanvas() {
               data-zone-id={z.id}
               data-active="false"
               className="vsa-zone"
-              style={{ ['--zone-color' as string]: `var(${MODE_VAR[z.mode]})` }}
+              style={{
+                ['--zone-color' as string]: `var(${MODE_VAR[z.mode]})`,
+                ['--zone-fill' as string]: `var(--${z.mode}-fill)`,
+              }}
             >
               <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={18} className="vsa-zone-frame" />
               <text x={z.x + 20} y={z.y + 27} className="vsa-zone-label">
@@ -172,33 +175,31 @@ function SceneStyles() {
     <style>{`
 .vsa-scene { font-family: var(--font-mono); }
 
+/* Flat 2D, both themes: zones are soft washes of their mode FILL, framed thin. */
 .vsa-zone-frame {
-  fill: color-mix(in oklab, var(--zone-color) 4%, transparent);
-  stroke: color-mix(in oklab, var(--zone-color) 22%, transparent);
+  fill: color-mix(in oklab, var(--zone-fill, var(--bg-2)) 28%, transparent);
+  stroke: color-mix(in oklab, var(--zone-color) 30%, var(--line));
   stroke-width: 1.5;
   transition: fill 400ms ease, stroke 400ms ease;
 }
 .vsa-zone[data-active='true'] .vsa-zone-frame {
-  fill: color-mix(in oklab, var(--zone-color) 9%, transparent);
-  stroke: color-mix(in oklab, var(--zone-color) 55%, transparent);
+  fill: color-mix(in oklab, var(--zone-fill, var(--bg-2)) 55%, transparent);
+  stroke: var(--zone-color);
 }
 .vsa-zone-label {
-  fill: color-mix(in oklab, var(--zone-color) 72%, var(--text-2));
+  fill: var(--zone-color);
   font-size: 15px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
 }
 .vsa-zone-sub { fill: var(--text-3); font-size: 11.5px; letter-spacing: 0.02em; }
 
-/* Untravelled edges are barely there on purpose: 158 connectors at full strength read as
-   spaghetti and bury the one path that matters. They exist to show the graph is dense,
-   not to be individually traced. */
 .vsa-edge {
-  stroke: var(--text-3);
-  stroke-opacity: 0.11;
-  stroke-width: 1.1;
+  stroke: var(--line-strong);
+  stroke-opacity: 0.55;
+  stroke-width: 1.25;
   transition: stroke 320ms ease, stroke-opacity 320ms ease, stroke-width 320ms ease;
 }
-.vsa-edge[data-kind='aux'] { stroke-dasharray: 3 7; stroke-opacity: 0.07; }
-.vsa-edge[data-state='done'] { stroke: var(--ok); stroke-opacity: 0.42; stroke-width: 1.5; }
+.vsa-edge[data-kind='aux'] { stroke-dasharray: 3 7; stroke-opacity: 0.3; }
+.vsa-edge[data-state='done'] { stroke: var(--ok); stroke-opacity: 0.55; stroke-width: 1.5; }
 .vsa-edge[data-state='active'] {
   stroke: var(--current-mode, var(--mode-user));
   stroke-opacity: 1; stroke-width: 3;
@@ -207,49 +208,51 @@ function SceneStyles() {
 }
 @keyframes vsa-dash { to { stroke-dashoffset: -18; } }
 
+/* Nodes are cards: solid paper, thin frame, mode-coloured spine. No glow — flat 2D. */
 .vsa-node { cursor: pointer; }
 .vsa-node-frame {
-  fill: color-mix(in oklab, var(--bg-1) 88%, transparent);
-  stroke: var(--border);
+  fill: var(--bg-1);
+  stroke: var(--line-strong);
   stroke-width: 1.25;
   transition: fill 300ms ease, stroke 300ms ease;
 }
-.vsa-node-tab { fill: var(--text-3); transition: fill 300ms ease; }
+.vsa-node-tab { fill: var(--line-strong); transition: fill 300ms ease; }
 .vsa-node-label { fill: var(--text-2); font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
 .vsa-node-sub { fill: var(--text-3); font-size: 10.5px; }
 
-.vsa-node[data-state='future'] { opacity: 0.4; }
-.vsa-node[data-state='visited'] { opacity: 0.78; }
+.vsa-node[data-state='future'] { opacity: 0.38; }
+.vsa-node[data-state='visited'] { opacity: 0.85; }
 .vsa-node[data-state='visited'] .vsa-node-frame {
-  stroke: color-mix(in oklab, var(--ok) 40%, transparent);
+  stroke: color-mix(in oklab, var(--ok) 55%, var(--line-strong));
 }
 .vsa-node[data-state='visited'] .vsa-node-tab { fill: var(--ok); }
 .vsa-node[data-state='visited'] .vsa-node-label { fill: var(--text-1); }
 
-.vsa-node[data-state='active'] { opacity: 1; filter: url(#vsa-glow); }
+.vsa-node[data-state='active'] { opacity: 1; }
 .vsa-node[data-state='active'] .vsa-node-frame {
-  fill: color-mix(in oklab, var(--node-color, var(--mode-user)) 14%, var(--bg-1));
+  fill: var(--node-fill, var(--bg-1));
   stroke: var(--node-color, var(--mode-user));
   stroke-width: 2;
 }
 .vsa-node[data-state='active'] .vsa-node-tab { fill: var(--node-color, var(--mode-user)); }
-.vsa-node[data-state='active'] .vsa-node-label { fill: var(--text-1); }
+.vsa-node[data-state='active'] .vsa-node-label { fill: var(--node-color, var(--text-1)); }
 .vsa-node[data-state='active'] .vsa-node-sub { fill: var(--text-2); }
 
-.vsa-node[data-mode='user']   { --node-color: var(--mode-user); }
-.vsa-node[data-mode='kernel'] { --node-color: var(--mode-kernel); }
-.vsa-node[data-mode='hw']     { --node-color: var(--mode-hw); }
-.vsa-node[data-mode='net']    { --node-color: var(--mode-net); }
-.vsa-node[data-mode='remote'] { --node-color: var(--mode-remote); }
+.vsa-node[data-mode='user']   { --node-color: var(--user-ink);   --node-fill: var(--user-fill); }
+.vsa-node[data-mode='kernel'] { --node-color: var(--kernel-ink); --node-fill: var(--kernel-fill); }
+.vsa-node[data-mode='hw']     { --node-color: var(--hw-ink);     --node-fill: var(--hw-fill); }
+.vsa-node[data-mode='net']    { --node-color: var(--net-ink);    --node-fill: var(--net-fill); }
+.vsa-node[data-mode='remote'] { --node-color: var(--remote-ink); --node-fill: var(--remote-fill); }
 
 .vsa-node:focus-visible { outline: none; }
 .vsa-node:focus-visible .vsa-node-frame { stroke: var(--mode-user); stroke-width: 2.5; }
 
+/* The packet is the only thing that glows — it is the signal. */
 .vsa-packet { pointer-events: none; filter: url(#vsa-glow); }
 .vsa-packet-halo { fill: var(--packet-color, var(--mode-user)); opacity: 0.16; }
 .vsa-packet-core { fill: var(--packet-color, var(--mode-user)); }
 .vsa-packet-chip {
-  fill: color-mix(in oklab, var(--bg-0) 82%, transparent);
+  fill: var(--bg-1);
   stroke: var(--packet-color, var(--mode-user));
   stroke-width: 1.25;
 }

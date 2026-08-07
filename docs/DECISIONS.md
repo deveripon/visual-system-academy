@@ -143,3 +143,15 @@ Record anything the next agent would otherwise have to rediscover.
   column. The pinned-bottom split (packet top, stretchy void, state pinned) read as a
   hole in the UI. Map mode keeps the pinned layout because the explanation lives in the
   rail there and competes for the same column.
+- 2026-08-05 — Story mode auto-play is a reading-pace timer (StoryAutoplay, 4.6s/speed),
+  not GSAP: it only runs while status === 'playing', so every gate (branch, quiz, end)
+  pauses it for free — next() refuses the gate, flips status, the chain stops.
+- 2026-08-05 — The shell is overflow-clip + w-full and the rail is clamped to 34vw:
+  nothing inside may ever widen the app past the window ("shell screens going beyond").
+- 2026-08-05 — The instrument rail speaks beginner first: every section carries one plain
+  sentence (what a socket state IS, why RAM has two halves, "everything is a file")
+  before showing its value. The bare ring/pool/queue counters only render when nonzero,
+  with human labels — "ring 0 · pool 0 · queue 0" was instrument jargon with no reader.
+- 2026-08-05 — The map is flat 2D in both themes: zones are washes of their mode FILL,
+  nodes are solid paper cards with a mode spine, the packet is the only thing that glows.
+  The neon glow filter on the active node died with the dark-only theme.

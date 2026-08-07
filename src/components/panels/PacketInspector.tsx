@@ -160,13 +160,19 @@ export function PacketInspector() {
       className="flex min-h-[128px] flex-col gap-2 border-t border-line p-3.5"
     >
       <div className="flex items-baseline gap-2">
-        <h2 className="instrument-label">packet</h2>
+        <h2 className="instrument-label">packet on the wire</h2>
         {packet ? (
           <span className="ml-auto shrink-0 font-mono text-[9.5px] text-t3">
             {packet.layers.length} layers
           </span>
         ) : null}
       </div>
+      {packet ? (
+        <p className="-mt-1 text-[10.5px] leading-snug text-t3">
+          The message in flight, wrapped layer inside layer like envelopes. Open a layer
+          to see its real header values.
+        </p>
+      ) : null}
 
       {packet ? (
         <>

@@ -53,7 +53,9 @@ export function RightRail() {
         'bg-[color-mix(in_oklab,var(--bg-1)_88%,transparent)]',
         expanded ? 'h-[70%]' : 'h-auto',
         // Desktop: a real column in the shell's flex row, stretched by the row itself.
-        'lg:static lg:z-auto lg:h-auto lg:min-h-0 lg:w-[400px] lg:shrink-0',
+        // clamp: never wider than a third of the window, so the rail cannot push the
+        // shell past the viewport on smaller screens.
+        'lg:static lg:z-auto lg:h-auto lg:min-h-0 lg:w-[400px] lg:max-w-[34vw] lg:shrink-0',
         'lg:rounded-none lg:border-t-0 lg:border-l',
         'lg:bg-[color-mix(in_oklab,var(--bg-1)_55%,transparent)]',
       ].join(' ')}
