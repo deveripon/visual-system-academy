@@ -155,3 +155,19 @@ Record anything the next agent would otherwise have to rediscover.
 - 2026-08-05 — The map is flat 2D in both themes: zones are washes of their mode FILL,
   nodes are solid paper cards with a mode spine, the packet is the only thing that glows.
   The neon glow filter on the active node died with the dark-only theme.
+- 2026-08-05 — foldOsState now records provenance: touched[field] = the step index that
+  last CHANGED the value (not merely rewrote it). The inspector uses it to open a widget
+  only while its value is fresh (this step or the previous) and collapse it to one honest
+  sentence otherwise — a wall of frozen instruments read as "out of sync with the story".
+- 2026-08-05 — Collapsed instruments still tell the truth in beginner words ("No
+  connection yet — we have not dialled the server"), which converts the most confusing
+  widget (a socket machine stuck on CLOSED for 24 steps) into the clearest one.
+- 2026-08-05 — The chain rail dedups PLACES globally, not consecutively: revisiting a hub
+  (Network Service) re-lights its existing chip and pans back to it instead of minting a
+  duplicate. The rail is "places visited", not "hops taken" — the dock remains the
+  step-accurate record.
+- 2026-08-05 — data-components-b/c.js supplements removed: the base file carries all 87
+  dossiers, and the later-wins merge would have silently clobbered 50 of the beginner
+  rewrites. Contract C8 trimmed accordingly.
+- 2026-08-05 — ink-3 lifted to clear WCAG 4.5:1 on both grounds (#767065 on paper,
+  #8b877e on dark) — it labels every instrument, so it is body text, not decoration.

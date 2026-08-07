@@ -188,8 +188,8 @@ Mode → token mapping lives in `src/scene/modeColors.ts`: `modeColor(mode) → 
 | file | global | scope |
 |---|---|---|
 | `data-components.js` | `window.COMPONENTS` | dossiers, browser+node+kernel(part) |
-| `data-components-b.js` | `window.COMPONENTS_B` | dossiers, net/hw zones |
-| `data-components-c.js` | `window.COMPONENTS_C` | dossiers, dns/cf/origin/app/db |
+
+
 | `data-steps-a.js` | `window.STEPS_A` | chapters 1–8 |
 | `data-steps-b1.js` | `window.STEPS_B1` | chapters 9–12 |
 | `data-steps-b2.js` | `window.STEPS_B2` | chapters 13–16 |

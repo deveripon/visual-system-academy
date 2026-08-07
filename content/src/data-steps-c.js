@@ -15,19 +15,19 @@ window.STEPS_C = [
       key: 'deploy',
       question: 'nginx has the request decrypted and parsed, ready to forward upstream. Where does the NestJS app actually live?',
       options: [
-        { value: 'docker', label: 'Docker container', hint: 'Published port, iptables DNAT, bridge, veth pair — the modern default' },
-        { value: 'baremetal', label: 'Bare metal + systemd', hint: 'node process straight on the host, loopback interface, zero NAT' }
+        { value: 'docker', label: 'Docker container', hint: 'A published port, an address rewrite (iptables DNAT), a software switch and a virtual cable — the modern default' },
+        { value: 'baremetal', label: 'Bare metal + systemd', hint: 'The node process sits straight on the host, reached over loopback, with no address rewriting at all' }
       ]
     },
     explain: {
-      what: 'The nginx worker holds a fully parsed plaintext request — GET /products?limit=20 — and consults its upstream configuration to decide the next hop. That one config line encodes an entire deployment philosophy: is the app a namespaced container reached through NAT and a virtual switch, or a plain process one loopback hop away?',
-      why: 'Everything in this chapter — DNAT, bridges, veth pairs, network namespaces — exists only on one side of this fork. The bytes are identical either way; the plumbing is not.',
+      what: "nginx has the letter open on the desk and now has to decide which door to carry it to. Concretely: the worker holds a fully parsed, unencrypted request — GET /products?limit=20 — and reads one line of its own config, the upstream block, to find the next hop. That single line settles everything that follows. Either the app is a container, a process sealed inside its own private copy of the network and reached through address rewriting and a software switch, or it is an ordinary program sitting one hop away on the very same machine.",
+      why: "Every piece of plumbing in this chapter exists on only one side of this fork, so getting the answer right is the difference between debugging four moving parts and debugging none of them.",
       component: 'nginx upstream module (ngx_http_upstream)',
       layer: 'Origin server · L7 routing decision',
       abstraction: 'Reverse proxy → application hop',
       protocol: 'HTTP/1.1 upstream (plaintext, TLS already terminated)',
-      misconception: '"Docker networking is slow because it is virtualized." The bridge and veth path costs well under 10 microseconds per packet — usually invisible next to a single database query.',
-      analogy: 'The mailroom has the letter out of its envelope. Does it go to a desk in this building (loopback), or into the sealed wing with its own internal mail system (container)?',
+      misconception: "You might think Docker networking must be slow because everything about it is virtual — actually the whole software-switch path costs well under 10 microseconds per packet, which vanishes next to a single database query.",
+      analogy: "A delivery driver squinting at the address label: is this a house with its own front door, or the gated complex where every parcel goes through the security desk first?",
       command: 'nginx -T | grep -A4 "location /"',
       production: 'SREs pin this choice down with infrastructure-as-code; the upstream block is where you configure keepalive connection pools, timeouts, and retries against the app tier.'
     }
@@ -51,14 +51,14 @@ window.STEPS_C = [
     },
     state: { proc: 'nginx worker' },
     explain: {
-      what: 'The container was started with a published port — host 443 mapped to container 3000, bound on the docker0 gateway address. nginx opens (or reuses, via upstream keepalive) a TCP connection to 172.17.0.1:443 and writes the request as plaintext HTTP/1.1, stamping on X-Forwarded-For and X-Forwarded-Proto so the app can reconstruct who really called and how.',
-      why: 'The proxy deliberately targets the published port, not the container IP: container IPs are ephemeral and change on every restart, while the published port is a stable contract maintained by dockerd.',
+      what: "The app lives inside a sealed box, so Docker punched exactly one hole in the wall for it. That hole is a published port: the container was started with host 443 mapped to container 3000, listening on the docker0 gateway address. nginx opens a TCP connection to 172.17.0.1:443 — or reuses one it already has open, thanks to the upstream keepalive pool — and writes the request as plain unencrypted HTTP/1.1, adding X-Forwarded-For and X-Forwarded-Proto so the app can still work out who really called and whether they arrived over HTTPS.",
+      why: "The proxy aims at the published port rather than the container's own address on purpose: container addresses are handed out fresh on every restart, while the published port is a promise dockerd keeps.",
       component: 'nginx proxy_pass + docker port publishing (-p 443:3000)',
       layer: 'Origin server · L4/L7 boundary',
       abstraction: 'Stable published endpoint hiding an ephemeral container',
       protocol: 'HTTP/1.1 over TCP',
-      misconception: '"docker-proxy (the userland process) copies every packet." On modern Linux the iptables DNAT path carries the traffic; the userland proxy mostly covers edge cases like localhost hairpins, and many production hosts disable it outright.',
-      analogy: 'You address mail to the building’s front desk (published port), never to the tenant’s room number (container IP) — tenants move rooms constantly.',
+      misconception: "You might think the little helper process called docker-proxy copies every packet through itself — actually on modern Linux the kernel's own address-rewriting path carries the traffic; the helper only covers oddities like localhost hairpin connections, and plenty of production hosts switch it off entirely.",
+      analogy: "You write the hotel's street address on a parcel, never the guest's room number. Guests move rooms all week; the hotel stays put.",
       command: 'docker port api\n# 443/tcp -> 172.17.0.1:443',
       production: 'Always set proxy_http_version 1.1 and an upstream keepalive pool; without it nginx opens a fresh TCP handshake to the container per request and you burn ephemeral ports under load.'
     },
@@ -97,17 +97,17 @@ window.STEPS_C = [
         'conntrack recorded the original tuple at DNAT time and automatically un-NATs every reply packet of that flow'
       ],
       answer: 2,
-      explain: 'NAT in Linux is stateful: the first packet of a flow traverses the nat table once, conntrack stores both the original and reply tuples, and every subsequent packet — in either direction — is rewritten from that entry without touching iptables rules again.'
+      explain: 'Address rewriting in Linux has a memory. The first packet of a flow walks the nat table exactly once; conntrack then files away both the outbound address pair and the expected reply address pair, and every packet after that — going either way — is rewritten straight from that filed entry, without a single firewall rule being consulted again.'
     },
     explain: {
-      what: 'The locally generated packet hits the nat table OUTPUT hook, jumps into the DOCKER chain, and matches the rule dockerd installed at container start: destination port 443 → DNAT to 172.17.0.2:3000. The kernel rewrites the destination IP and port in place and conntrack records the translation as a flow entry.',
-      why: 'This is the entire mechanism behind -p 443:3000. No proxy process, no copying — one header rewrite in the kernel, then normal routing takes over and sends the packet toward docker0.',
+      what: "The kernel quietly changes the address on the envelope while the letter is still in the building. The packet, made right here on this machine, hits the nat table's OUTPUT hook — one of the fixed points where firewall rules get their say — jumps into the chain named DOCKER, and matches the rule dockerd installed the instant the container started: anything for port 443 has its destination rewritten to 172.17.0.2:3000. That rewrite is called DNAT. The kernel edits the destination IP and port in place, and conntrack — the kernel's notebook of live connections — writes the translation down as a flow entry.",
+      why: "This one small header edit IS the whole of -p 443:3000: no proxy process, no copying, just two fields changed before ordinary routing carries the packet on toward docker0.",
       component: 'netfilter nat table, DOCKER chain (net/netfilter/nf_nat_core.c)',
       layer: 'Server kernel · L3/L4 NAT',
       abstraction: 'Port publishing as a stateful header rewrite',
       protocol: 'Netfilter NAT (DNAT target)',
-      misconception: '"Every packet of the connection is matched against iptables NAT rules." Only the FIRST packet of a flow traverses the nat table; the verdict is cached in conntrack and replayed for the rest of the connection.',
-      analogy: 'A mail-forwarding order filed once at the post office: the first letter sets it up, and every later letter is silently redirected without anyone re-reading the order.',
+      misconception: "You might think every packet in the connection gets checked against the NAT rules — actually only the FIRST packet of a flow walks the nat table; the verdict is filed in conntrack and replayed for the rest of the connection without a rule ever being read again.",
+      analogy: "A mail-redirection order filed once at the sorting office: the first letter sets it up, and every letter afterwards is quietly re-addressed without anyone reading the paperwork twice.",
       command: 'sudo iptables -t nat -nvL DOCKER',
       production: 'Debugging "port published but unreachable" almost always ends in this chain — check DOCKER-USER for drop rules, verify net.ipv4.ip_forward=1, and remember firewalld or ufw can silently reorder these chains.'
     },
@@ -133,14 +133,14 @@ window.STEPS_C = [
       }
     },
     explain: {
-      what: 'Routing says 172.17.0.2 is reachable via docker0, a kernel bridge device — a Layer 2 learning switch implemented entirely in software. The bridge consults its FDB (forwarding database, the software CAM table), finds the container’s MAC 02:42:ac:11:00:02 behind one specific port, and forwards the frame there.',
-      why: 'A bridge lets any number of containers share one subnet and talk to each other at L2 speed without per-container routes. It is the same code path a hardware switch implements in silicon — net/bridge/ in the kernel tree.',
+      what: "docker0 is a network switch that exists only as code. Routing says 172.17.0.2 lives out through docker0, a kernel bridge device — a learning switch built entirely in software. The bridge checks its FDB (forwarding database, the software version of the address table inside a real switch), sees that the container's hardware address 02:42:ac:11:00:02 sits behind one particular port, and hands the frame to that port and no other.",
+      why: "A bridge lets any number of containers share one small network and reach each other directly, with no per-container routes to keep straight — and it runs the same logic a metal switch burns into silicon, living here as plain C in net/bridge/.",
       component: 'Linux bridge (net/bridge/br_forward.c), FDB',
       layer: 'Server kernel · OSI L2',
       abstraction: 'Virtual Ethernet switch inside the kernel',
       protocol: 'Ethernet bridging (IEEE 802.1D)',
-      misconception: '"docker0 is a special Docker technology." It is a bone-stock Linux bridge — brctl and ip link manage it identically to one created by hand; Docker just automates the setup.',
-      analogy: 'An office switchboard that has learned which extension sits behind which jack — frames go straight to the right port, never broadcast to everyone.',
+      misconception: "You might think docker0 is some special Docker invention — actually it is a completely ordinary Linux bridge; ip link and brctl manage it exactly as they would one you built by hand. Docker simply does the building for you.",
+      analogy: "A school receptionist who has the seating plan memorised: a note for one pupil is walked straight to that classroom, never read out over the tannoy to the whole school.",
       command: 'bridge fdb show br docker0 | grep -v permanent',
       production: 'With br_netfilter loaded, bridged frames also traverse iptables FORWARD — the DOCKER-USER chain exists precisely so operators can firewall inter-container traffic without dockerd overwriting their rules.'
     },
@@ -165,14 +165,14 @@ window.STEPS_C = [
       }
     },
     explain: {
-      what: 'The bridge port vethd3adb33 is one end of a veth pair — a virtual patch cable. Whatever is transmitted into one end is received on the other, and the other end lives inside the container’s network namespace, where it is named eth0. veth_xmit hands the skb directly to the peer device’s receive path; no wire, no DMA, just a pointer handoff.',
-      why: 'Namespaces isolate; veth pairs selectively reconnect. This is the only doorway between the host network and the container network — everything the container sends or receives crosses this pair.',
+      what: "Picture a short cable with a plug at each end — except there is no cable, just two software devices that hand packets to one another. The bridge port vethd3adb33 is one end of a veth pair (veth is short for virtual Ethernet), and the far end lives inside the container's own private network world, where it goes by the name eth0. veth_xmit takes the packet buffer, called an skb, and drops it straight into the peer device's receive path: no wire, no DMA, just a pointer changing hands.",
+      why: "Namespaces exist to separate things; veth pairs exist to reconnect exactly the things you choose. This pair is the only doorway between the host's network and the container's, so every byte in or out passes through it.",
       component: 'veth driver (drivers/net/veth.c)',
       layer: 'Server kernel · virtual L1/L2',
       abstraction: 'Point-to-point virtual cable between namespaces',
       protocol: 'Ethernet (virtual)',
-      misconception: '"The container’s eth0 is a slice of the physical NIC." It is pure software — the physical NIC may never be involved at all for host↔container traffic.',
-      analogy: 'Two tin cans on a string, with one can inside a sealed room. The string through the wall is the only way sound gets in or out.',
+      misconception: "You might think the container's eth0 is a slice carved off the real network card — actually it is pure software, and for traffic between the host and the container the physical card may never be touched at all.",
+      analogy: "A pass-through hatch in the wall of a hospital isolation ward: sealed room on one side, corridor on the other, and it is the only opening either side has.",
       command: 'ip -d link show vethd3adb33   # note: veth, master docker0, link-netnsid 0',
       production: 'The @if7 suffix pairs the interfaces: peer ifindex. When chasing packet loss, run tcpdump on the veth host end and on eth0 inside the container — if a packet appears on one but not the other, blame netfilter, not the "cable".'
     },
@@ -199,14 +199,14 @@ window.STEPS_C = [
     },
     state: { proc: 'node PID 1 (container)' },
     explain: {
-      what: 'The frame surfaces on eth0 inside the container’s network namespace — created at container start via clone(CLONE_NEWNET). This namespace owns a private view of the entire network stack: its own interfaces (lo + eth0), its own routing table, its own iptables rules, its own conntrack, its own /proc/net. From in here, the host’s NICs simply do not exist.',
-      why: 'Network namespaces are the isolation half of container networking: the app binds 0.0.0.0:3000 without ever colliding with the host’s port 3000, because "port 3000" is namespace-scoped.',
+      what: "The packet steps through the wall into the container's own private copy of the network. It surfaces on eth0 inside the container's network namespace, which was created when the container started via clone(CLONE_NEWNET) — a system call that means, roughly, give this new process a fresh network stack of its own. That namespace owns its own interfaces (just lo and eth0), its own routing table, its own firewall rules, its own connection notebook, its own /proc/net. From inside here, the host's real network cards simply do not exist.",
+      why: "Namespaces are the isolation half of container networking: the app can bind 0.0.0.0:3000 without ever fighting the host for port 3000, because the words port 3000 only mean anything inside one namespace.",
       component: 'Network namespace (net/core/net_namespace.c)',
       layer: 'Server kernel · namespace isolation',
       abstraction: 'A private copy of the network stack per container',
       protocol: '—',
-      misconception: '"Containers virtualize the kernel." There is exactly ONE kernel; a namespace is just a scoping mechanism on kernel objects. That is why containers boot in milliseconds and why a kernel bug is shared by every container on the host.',
-      analogy: 'Apartment units in one building: each has its own front door, mailbox, and room numbers, but they all share the same foundation, plumbing, and electrical grid.',
+      misconception: "You might think each container runs its own little kernel — actually there is exactly ONE kernel on the machine, and a namespace is only a way of scoping which kernel objects a process can see. That is why containers start in milliseconds, and also why one kernel bug is shared by every container on the host.",
+      analogy: "Flats in one apartment building: each has its own front door, its own letterbox and its own numbered rooms, and every one of them stands on a single foundation with a single set of pipes.",
       command: 'sudo nsenter -t "$(docker inspect -f "{{.State.Pid}}" api)" -n ss -ltn',
       production: 'When exec-ing into distroless containers with no ss/ip binaries, nsenter from the host into the container netns is the debugging move — host tools, container view.'
     },
@@ -233,14 +233,14 @@ window.STEPS_C = [
     },
     state: { proc: 'nginx worker' },
     explain: {
-      what: 'No containers here: the node process listens directly on 127.0.0.1:3000, and nginx forwards over loopback. One connect(), one write() — the request never leaves the machine, never touches NAT, never crosses a namespace boundary.',
-      why: 'Binding the app to 127.0.0.1 instead of 0.0.0.0 is a deliberate security posture: the only way to reach it is through the proxy, which owns TLS, rate limiting, and access logs.',
+      what: "No containers anywhere on this path: the node process is listening directly on 127.0.0.1:3000, the machine's own internal address, and nginx simply talks to it there. One connect(), one write(). The request never leaves the computer, never has its address rewritten, never crosses into a separate network namespace.",
+      why: "Binding the app to 127.0.0.1 rather than 0.0.0.0 is a deliberate lock on the front door: the only way in is through the proxy, and the proxy is where TLS, rate limiting and access logs already live.",
       component: 'nginx proxy_pass → loopback TCP',
       layer: 'Origin server · L4',
       abstraction: 'Co-located processes talking over local TCP',
       protocol: 'HTTP/1.1 over TCP (loopback)',
-      misconception: '"Loopback TCP still goes down to the NIC and back." It never touches hardware — the kernel short-circuits the packet from its own IP layer output straight back into its IP input path.',
-      analogy: 'Interoffice mail between two desks in the same room: it still gets an envelope and a stamp (TCP/IP headers), but it never sees a mail truck.',
+      misconception: "You might think loopback traffic still travels down to the network card and back — actually it never touches hardware at all; the kernel takes the packet at the bottom of its own send path and posts it straight back into its own receive path.",
+      analogy: "Interoffice mail between two desks in the same room: it still gets an envelope and a stamp (those are the TCP and IP headers), it just never sees a van.",
       command: 'ss -ltn "sport = :3000"',
       production: 'Loopback MSS is huge (MTU 65536) and latency is single-digit microseconds; if proxy→app latency shows up in traces on a bare-metal box, suspect the app event loop, not the transport.'
     },
@@ -265,14 +265,14 @@ window.STEPS_C = [
       }
     },
     explain: {
-      what: 'The packet routes via the local table (127.0.0.0/8 dev lo) into loopback_xmit — drivers/net/loopback.c — which immediately re-queues the skb into the receive path of the same kernel. No NIC, no IRQ, no DMA, no ring buffer: transmit IS receive. The node process itself is supervised by a systemd unit that restarts it on crash and captures stdout into the journal.',
-      why: 'Loopback exists so the entire socket API works uniformly whether the peer is across the planet or across the process table — the app cannot tell the difference, by design.',
+      what: "The kernel hands the packet to itself. Routing sends it via the local table (127.0.0.0/8 dev lo) into loopback_xmit — the entire driver is one small file, drivers/net/loopback.c — which immediately re-queues the buffer into the receive path of the same kernel. No card, no interrupt, no DMA, no ring buffer: transmitting IS receiving. The node process behind all this is watched over by a systemd unit that restarts it if it dies and files everything it prints into the journal.",
+      why: "Loopback exists so the socket API behaves identically whether the other end is across the planet or across the process table — the app genuinely cannot tell the difference, and that is the whole point.",
       component: 'Loopback driver (drivers/net/loopback.c) + systemd service',
       layer: 'Server kernel · virtual L1',
       abstraction: 'The network stack talking to itself',
       protocol: 'TCP/IP over a software device',
-      misconception: '"localhost traffic can skip TCP." It cannot — full TCP state machines run on both ends. The kernel skips checksumming (the memory bus does not flip bits), but sequencing, windows, and retransmit timers all exist.',
-      analogy: 'A theater intercom wired from the stage to the stage: full protocol, zero distance.',
+      misconception: "You might think localhost traffic gets to skip TCP — actually it cannot: a full TCP state machine runs at each end. The kernel does skip checksumming, because memory does not flip bits the way a cable does, but sequence numbers, windows and retransmit timers are all still there.",
+      analogy: "A radio studio talkback: the presenter's microphone feeds headphones two feet away, and the sound still travels through the entire mixing desk on the way.",
       command: 'ip -s link show lo   # RX and TX counters are always identical',
       production: 'systemctl status api and journalctl -u api -f are the bare-metal equivalents of docker logs; Restart=always plus StartLimitBurst is the poor man’s orchestrator.'
     },

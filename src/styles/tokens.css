@@ -20,10 +20,10 @@ html[data-theme='light'] {
   --bg-1: #ffffff;
   --bg-2: #f3f1ed;
 
-  /* ink */
+  /* ink — ink-3 is used for small labels, so it must clear 4.5:1 on --bg-0/--bg-1 */
   --ink-1: #1b1a18;
-  --ink-2: #56524b;
-  --ink-3: #9d978d;
+  --ink-2: #55514a;
+  --ink-3: #767065;
 
   /* lines */
   --line: #e8e5df;
@@ -57,10 +57,10 @@ html[data-theme='dark'] {
   --bg-1: #191c1f;
   --bg-2: #212529;
 
-  /* ink */
+  /* ink — ink-3 must clear 4.5:1 on the dark grounds too */
   --ink-1: #ecebe7;
-  --ink-2: #a8a49c;
-  --ink-3: #6c6961;
+  --ink-2: #aca89f;
+  --ink-3: #8b877e;
 
   /* lines */
   --line: #282c31;

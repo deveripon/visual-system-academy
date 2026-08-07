@@ -198,6 +198,12 @@ export interface OsState {
   fds: [string, string][];
   mem: MemSpace;
   counters: { ring: number; pool: number; queue: number };
+  /**
+   * Provenance: the step index that last CHANGED each field (-1 = never). This is what
+   * lets the live inspector show only what this step touched, instead of a wall of
+   * instruments that look frozen (docs/ENGINE_V2.md §10).
+   */
+  touched: { mode: number; proc: number; sock: number; fds: number; mem: number };
 }
 
 export interface ChapterInfo {

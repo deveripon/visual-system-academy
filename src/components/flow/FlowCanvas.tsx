@@ -29,17 +29,28 @@ export function FlowCanvas() {
 
   const revealed = timeline.slice(0, index + 1);
 
-  // One entry per visited node (consecutive dedup), carrying the step that entered it.
+  /*
+   * One chip per PLACE, ever — global dedup, not just consecutive. The journey genuinely
+   * bounces back to hubs like the Network Service; drawing a new chip each visit filled
+   * the rail with repeats. Revisiting a place re-lights its existing chip instead, and
+   * the camera pans back to it — which reads exactly like returning somewhere.
+   */
   const chain: { node: TreeId; step: Step }[] = [];
+  const position = new Map<TreeId, number>();
+  let latest: Step | null = null;
   for (const raw of revealed) {
     const step = prodMode ? mergeProd(raw) : raw;
-    if (!chain.length || chain[chain.length - 1].node !== step.node) {
+    latest = step;
+    const at = position.get(step.node);
+    if (at === undefined) {
+      position.set(step.node, chain.length);
       chain.push({ node: step.node, step });
     } else {
-      chain[chain.length - 1].step = step; // latest beat inside the node wins the colour
+      chain[at].step = step; // latest beat inside the node wins the colour
     }
   }
-  const current = chain[chain.length - 1];
+  const currentChipIndex = latest ? (position.get(latest.node) ?? -1) : -1;
+  const current = latest ? { node: latest.node, step: latest } : null;
 
   /*
    * The camera: an imperative transform on the rail track (never React state). The
@@ -85,13 +96,13 @@ export function FlowCanvas() {
       >
         <div
           ref={railRef}
-          className="flex w-max items-center pl-12 pr-24 transition-transform duration-700 will-change-transform"
+          className="flex w-max items-center pl-4 pr-24 transition-transform duration-700 will-change-transform sm:pl-12"
           style={{ transitionTimingFunction: 'var(--ease-inout)' }}
         >
           {chain.map((link, i) => {
-            const isCurrent = i === chain.length - 1;
+            const isCurrent = i === currentChipIndex;
             return (
-              <div key={`${link.node}-${i}`} className="flex shrink-0 items-center">
+              <div key={link.node} className="flex shrink-0 items-center">
                 {i > 0 && <RailConnector signal={isCurrent ? modeColor(link.step.mode) : null} />}
                 <NodeChip step={link.step} node={link.node} current={isCurrent} />
               </div>
@@ -101,7 +112,7 @@ export function FlowCanvas() {
       </div>
 
       {/* ── the slide ───────────────────────────────────────────────────────── */}
-      <div className="grid min-h-0 flex-1 place-items-center px-8 pb-8 pt-5">
+      <div className="grid min-h-0 flex-1 place-items-center px-3 pb-4 pt-3 sm:px-8 sm:pb-8 sm:pt-5">
         {/* Keyed on step.id: each step slides in like the next slide of a deck. */}
         <div
           key={current.step.id}

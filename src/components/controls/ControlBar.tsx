@@ -134,8 +134,8 @@ export function ControlBar() {
 
       <div className="h-6 w-px bg-[var(--border)]" />
 
-      {/* speed */}
-      <label className="flex items-center gap-1.5">
+      {/* speed — hidden on phones; auto pace is fine there */}
+      <label className="hidden items-center gap-1.5 sm:flex">
         <span className="sr-only">Playback speed</span>
         <select
           value={speed}
@@ -169,8 +169,8 @@ export function ControlBar() {
         ))}
       </div>
 
-      {/* toggles */}
-      <div className="flex items-center gap-1">
+      {/* toggles — hidden on phones to keep the bar to its essentials */}
+      <div className="hidden items-center gap-1 md:flex">
         <Toggle label="Auto" title="Auto-advance after each step" on={autoplay} onChange={(v) => useSimStore.getState().setAutoplay(v)} />
         <Toggle label="Quiz" title="Pause on quiz steps until answered" on={quizMode} onChange={(v) => useSimStore.getState().setQuizMode(v)} />
         <Toggle label="Prod" title="Retell the story on a real production stack" on={prodMode} onChange={() => useSimStore.getState().toggleProdMode()} />

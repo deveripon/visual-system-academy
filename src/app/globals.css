@@ -136,6 +136,16 @@ body {
   }
 }
 
+/* A rail instrument pulses once when its value just changed. */
+@keyframes vsa-changed {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--user-ink) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
 /* The signal dot that runs the freshly-drawn line when the story advances. */
 @keyframes vsa-travel {
   0% {

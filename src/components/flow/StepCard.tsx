@@ -22,7 +22,7 @@ export function StepCard({ step }: { step: Step }) {
     <article
       data-step-card={step.id}
       aria-current="step"
-      className="flex min-h-0 w-full flex-col overflow-y-auto rounded-[var(--r-lg)] border bg-bg-1 px-7 py-6"
+      className="flex min-h-0 w-full flex-col overflow-y-auto rounded-[var(--r-lg)] border bg-bg-1 px-4 py-5 sm:px-7 sm:py-6"
       style={{ borderColor: ink, boxShadow: 'var(--shadow-lift)' }}
     >
       {/* eyebrow — where you are */}
@@ -38,7 +38,7 @@ export function StepCard({ step }: { step: Step }) {
         </span>
       </header>
 
-      <h2 className="mt-2.5 text-[21px] font-semibold leading-[1.25] tracking-[-0.015em] text-ink-1">
+      <h2 className="mt-2.5 text-[18px] font-semibold leading-[1.3] tracking-[-0.015em] text-ink-1 sm:text-[21px]">
         {step.title}
       </h2>
 
