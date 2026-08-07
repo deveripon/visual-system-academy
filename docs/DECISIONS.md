@@ -117,3 +117,19 @@ Record anything the next agent would otherwise have to rediscover.
 - 2026-08-04 — The control bar must NOT be a scroll container. When it was, clicking Next
   (its own child) let the browser scroll the focused button into view and dragged the
   wordmark off the left edge. Low-priority items hide at narrow widths instead.
+- 2026-08-05 — THEMING: two committed themes (warm paper light, deep ink dark) sharing one
+  fill+ink semantic system. A pre-hydration script in layout.tsx stamps data-theme on
+  <html> from localStorage else the OS preference, so there is no flash and no duplicated
+  @media block — CSS only ever reads the attribute. suppressHydrationWarning on <html>
+  because that attribute is intentionally client-stamped.
+- 2026-08-05 — ThemeToggle uses useSyncExternalStore over a MutationObserver on
+  <html data-theme>: the DOM attribute IS the store. No set-state-in-effect (linted as an
+  error here), and devtools edits / the boot script stay in sync automatically.
+- 2026-08-05 — Motion vocabulary lives in globals.css as five keyframes (pop-in, card-in,
+  fade-in, draw, travel) on one easing family (--ease-out/--ease-inout). Connectors use
+  pathLength={1} so a single normalised dash keyframe draws every elbow variant; the
+  travel dot runs the line via CSS offset-path — no JS animation in story mode at all.
+- 2026-08-05 — StepCard is ONE <article> whose current/mini states differ only by class:
+  React keeps the DOM node when `current` flips, so width/opacity/border TRANSITION and
+  the card visibly folds to its title instead of swapping. Disclosures animate height via
+  the grid-template-rows 0fr→1fr trick — children stay mounted, nothing is measured.

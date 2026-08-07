@@ -2,6 +2,7 @@
 
 import { useCurrentStep, useStepCount } from '@/state/selectors';
 import { useSimStore } from '@/state/store';
+import { ThemeToggle } from './ThemeToggle';
 import { MODE_LABEL, modeColor } from '@/scene/modeColors';
 import { CHAPTERS } from '@/data/types';
 
@@ -188,6 +189,7 @@ export function ControlBar() {
         <CtlButton label="Keyboard shortcuts (?)" onClick={() => useSimStore.getState().setHelpOpen(true)}>
           <Icon path={ICONS.help} />
         </CtlButton>
+        <ThemeToggle />
 
         {/* step meter */}
         <div className="hidden items-center gap-2 pl-1 md:flex">

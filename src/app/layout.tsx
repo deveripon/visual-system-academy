@@ -8,17 +8,28 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#06080f',
   width: 'device-width',
   initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#faf9f7' },
+    { media: '(prefers-color-scheme: dark)', color: '#111315' },
+  ],
 };
+
+/**
+ * Runs before anything paints: stamp the theme on <html> from localStorage, falling back
+ * to the OS preference. This is why there is no flash and why the CSS needs no
+ * duplicated @media block — `data-theme` is always explicit.
+ */
+const THEME_BOOT = `(function(){try{var t=localStorage.getItem('vsa-theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='light'}})()`;
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      {/* Extensions routinely inject attributes onto <body> before React hydrates
-          (Grammarly, ColorZilla, …); that is not a mismatch worth reporting. */}
+    // suppressHydrationWarning: data-theme is stamped pre-hydration on the client, so the
+    // server-rendered attribute set intentionally differs.
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="h-full overflow-hidden" suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         {children}
       </body>
     </html>

@@ -10,37 +10,50 @@ import { CodePane } from '@/components/panels/CodePane';
  * the words belong next to the thing they describe, not in a sidebar the eye has to
  * travel to.
  *
- * Only `what` and `why` are open. The other eight explain fields, the code and the
- * machine state live behind disclosures — present for anyone who wants them, invisible
- * to anyone who does not.
+ * One <article>, two states. React keeps the DOM node when `current` flips, so the
+ * width/opacity/border changes TRANSITION instead of swapping — the card visibly folds
+ * down to its title when the story moves on, and unfolds if you step back.
  */
 export function StepCard({ step, current }: { step: Step; current: boolean }) {
   const ink = modeColor(step.mode);
 
-  /*
-   * Steps you have already read collapse to their title. The card stays in the strip —
-   * the story remains walkable — but a hundred open cards is a wall of text, which is
-   * the clutter we are trying to remove. Scroll back and it is still there to re-read.
-   */
-  if (!current) {
-    return (
-      <article
-        data-step-card={step.id}
-        className="w-[220px] shrink-0 rounded-[var(--r-md)] border border-line bg-bg-1 p-3.5 opacity-60 transition-opacity duration-300 hover:opacity-100"
-        style={{ boxShadow: 'var(--shadow-card)' }}
-      >
-        <h2 className="text-[13px] font-medium leading-snug text-ink-2">{step.title}</h2>
-      </article>
-    );
-  }
-
   return (
     <article
       data-step-card={step.id}
-      aria-current="step"
-      className="flex max-h-[calc(100vh-16rem)] w-[400px] shrink-0 flex-col overflow-y-auto rounded-[var(--r-lg)] border bg-bg-1 p-5"
-      style={{ borderColor: ink, boxShadow: 'var(--shadow-lift)' }}
+      aria-current={current ? 'step' : undefined}
+      className={[
+        'flex shrink-0 flex-col overflow-hidden rounded-[var(--r-lg)] border bg-bg-1',
+        'transition-[width,max-height,opacity,border-color,box-shadow] duration-500',
+        current
+          ? 'max-h-[calc(100vh-16rem)] w-[400px] overflow-y-auto p-5'
+          : 'max-h-40 w-[230px] p-3.5 opacity-60 hover:opacity-100',
+      ].join(' ')}
+      style={{
+        borderColor: current ? ink : 'var(--line)',
+        boxShadow: current ? 'var(--shadow-lift)' : 'var(--shadow-card)',
+        transitionTimingFunction: 'var(--ease-out)',
+        animation: current ? 'vsa-card-in var(--t-flow) var(--ease-out) both' : undefined,
+      }}
     >
+      {current ? <FullCard step={step} ink={ink} /> : <MiniCard step={step} />}
+    </article>
+  );
+}
+
+function MiniCard({ step }: { step: Step }) {
+  return (
+    <h2
+      className="text-[13px] font-medium leading-snug text-ink-2"
+      style={{ animation: 'vsa-fade-in var(--t-ui) var(--ease-out) both' }}
+    >
+      {step.title}
+    </h2>
+  );
+}
+
+function FullCard({ step, ink }: { step: Step; ink: string }) {
+  return (
+    <div style={{ animation: 'vsa-fade-in var(--t-ui) var(--ease-out) both' }}>
       <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink-1">
         {step.title}
       </h2>
@@ -93,8 +106,12 @@ export function StepCard({ step, current }: { step: Step; current: boolean }) {
                 <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                   {Object.entries(step.packet?.fields?.[layer] ?? {}).map(([k, v]) => (
                     <div key={k} className="contents">
-                      <dt className="font-[family-name:var(--font-mono)] text-[10.5px] text-ink-3">{k}</dt>
-                      <dd className="font-[family-name:var(--font-mono)] text-[10.5px] text-ink-1">{v}</dd>
+                      <dt className="font-[family-name:var(--font-mono)] text-[10.5px] text-ink-3">
+                        {k}
+                      </dt>
+                      <dd className="font-[family-name:var(--font-mono)] text-[10.5px] text-ink-1">
+                        {v}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -112,7 +129,7 @@ export function StepCard({ step, current }: { step: Step; current: boolean }) {
           {MODE_LABEL[step.mode]}
         </span>
       </p>
-    </article>
+    </div>
   );
 }
 
@@ -127,6 +144,10 @@ function Field({ name, value }: { name: string; value: string }) {
   );
 }
 
+/**
+ * Children stay mounted; the row glides open via the grid-template-rows 0fr → 1fr
+ * trick, which animates height without measuring anything.
+ */
 function Disclosure({ label, children }: { label: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -138,14 +159,27 @@ function Disclosure({ label, children }: { label: string; children: React.ReactN
         className="flex w-full items-center gap-1.5 text-left"
       >
         <span
-          className="text-[10px] text-ink-3 transition-transform duration-150"
-          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+          className="text-[10px] text-ink-3 transition-transform duration-200"
+          style={{
+            transform: open ? 'rotate(90deg)' : undefined,
+            transitionTimingFunction: 'var(--ease-out)',
+          }}
         >
           ▶
         </span>
         <span className="instrument-label">{label}</span>
       </button>
-      {open && <div className="mt-2 pl-4">{children}</div>}
+      <div
+        className="grid transition-[grid-template-rows] duration-300"
+        style={{
+          gridTemplateRows: open ? '1fr' : '0fr',
+          transitionTimingFunction: 'var(--ease-out)',
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="pb-1 pl-4 pt-2">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,49 +1,94 @@
 /**
  * Visual Systems Academy — design tokens.
  *
- * Direction: "paper". A light, quiet ground with soft pastel nodes and dark ink, so the
- * eye goes to the words rather than to the glow. The previous neon-on-black palette read
- * as a monitoring dashboard; this reads as something you learn from.
+ * Direction: "animated field notes". Two committed themes — warm paper (light) and deep
+ * ink (dark) — sharing one semantic system: every mode (CPU privilege / packet location)
+ * is a FILL + INK pair, soft body colour plus saturated text colour.
  *
- * Mode colour is still semantic — it encodes CPU privilege and packet location — but it
- * is now a soft FILL plus a saturated INK instead of a luminous stroke.
+ * Theme mechanism: a pre-hydration script in layout.tsx stamps `data-theme` on <html>
+ * (from localStorage, else the OS preference), so there is never a flash and CSS needs
+ * no duplicated @media block. The toggle just rewrites the attribute.
  *
- * The `legacy names` block at the bottom keeps every v1 component (control bar, right
- * rail, panels, chapter dock, map canvas) rendering correctly in the new palette without
- * touching 3,700 lines of markup.
+ * The `legacy names` block keeps every v1 component (rail, panels, dock, map canvas)
+ * rendering correctly in both themes without touching their markup.
  */
 
-:root {
+:root,
+html[data-theme='light'] {
   /* ground */
-  --bg-0: #fbfaf9; /* page */
-  --bg-1: #ffffff; /* cards */
-  --bg-2: #f5f4f2; /* inset wells, code blocks */
+  --bg-0: #faf9f7;
+  --bg-1: #ffffff;
+  --bg-2: #f3f1ed;
 
   /* ink */
-  --ink-1: #1c1b19;
-  --ink-2: #57534e;
-  --ink-3: #a8a29e;
+  --ink-1: #1b1a18;
+  --ink-2: #56524b;
+  --ink-3: #9d978d;
 
   /* lines */
-  --line: #e7e5e4;
-  --line-strong: #d6d3d1;
+  --line: #e8e5df;
+  --line-strong: #d3cec5;
+  --dots: #e5e1da;
 
-  /* mode: soft fill + saturated ink, always used as a pair */
-  --user-fill: #dbeafe;
-  --user-ink: #1d4ed8;
-  --kernel-fill: #fecdd3;
-  --kernel-ink: #be123c;
-  --hw-fill: #ede9fe;
-  --hw-ink: #6d28d9;
-  --net-fill: #d1fae5;
-  --net-ink: #047857;
-  --remote-fill: #fef3c7;
-  --remote-ink: #b45309;
+  /* mode pairs — soft fill + saturated ink */
+  --user-fill: #dce9fd;
+  --user-ink: #2158d4;
+  --kernel-fill: #fdd8dd;
+  --kernel-ink: #c01a44;
+  --hw-fill: #e9e2fc;
+  --hw-ink: #6d33d6;
+  --net-fill: #d4f2e3;
+  --net-ink: #077552;
+  --remote-fill: #fdeccb;
+  --remote-ink: #af6a08;
 
-  --ok: #047857;
-  --warn: #b45309;
-  --err: #be123c;
+  --ok: #077552;
+  --warn: #af6a08;
+  --err: #c01a44;
 
+  /* elevation */
+  --shadow-card: 0 1px 2px rgba(27, 26, 24, 0.05), 0 10px 28px -18px rgba(27, 26, 24, 0.22);
+  --shadow-lift: 0 2px 4px rgba(27, 26, 24, 0.06), 0 18px 44px -20px rgba(27, 26, 24, 0.3);
+}
+
+html[data-theme='dark'] {
+  /* ground — deep, slightly warm ink, never pure black */
+  --bg-0: #111315;
+  --bg-1: #191c1f;
+  --bg-2: #212529;
+
+  /* ink */
+  --ink-1: #ecebe7;
+  --ink-2: #a8a49c;
+  --ink-3: #6c6961;
+
+  /* lines */
+  --line: #282c31;
+  --line-strong: #3a4048;
+  --dots: #23272c;
+
+  /* mode pairs — muted deep fills + luminous inks */
+  --user-fill: #1d2c4e;
+  --user-ink: #8fb5ff;
+  --kernel-fill: #431a27;
+  --kernel-ink: #ff92a6;
+  --hw-fill: #2c2152;
+  --hw-ink: #c0a8ff;
+  --net-fill: #0f3527;
+  --net-ink: #5fd8a5;
+  --remote-fill: #3e2d10;
+  --remote-ink: #f2b45c;
+
+  --ok: #5fd8a5;
+  --warn: #f2b45c;
+  --err: #ff92a6;
+
+  /* elevation — on dark, depth comes from darker shade + brighter surface */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -18px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.4), 0 18px 48px -18px rgba(0, 0, 0, 0.7);
+}
+
+:root {
   /* type */
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI', sans-serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -52,16 +97,19 @@
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
-  --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04), 0 8px 24px -16px rgba(28, 27, 25, 0.18);
-  --shadow-lift: 0 2px 4px rgba(28, 27, 25, 0.06), 0 16px 40px -20px rgba(28, 27, 25, 0.28);
 
-  /* motion */
+  /* motion — one easing family so everything moves like one system */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
   --t-micro: 140ms;
-  --t-ui: 240ms;
+  --t-ui: 260ms;
+  --t-flow: 520ms;
+}
 
-  /* ── legacy names, repointed at the paper palette ──────────────────────── */
-  --surface: #ffffff;
-  --surface-2: #f5f4f2;
+/* ── legacy names, both themes follow automatically ─────────────────────── */
+:root {
+  --surface: var(--bg-1);
+  --surface-2: var(--bg-2);
   --border: var(--line);
   --border-strong: var(--line-strong);
   --text-1: var(--ink-1);
@@ -72,7 +120,7 @@
   --mode-hw: var(--hw-ink);
   --mode-net: var(--net-ink);
   --mode-remote: var(--remote-ink);
-  --glass-blur: blur(10px) saturate(1.05);
+  --glass-blur: none;
   --glass-shadow: var(--shadow-card);
 }
 
@@ -86,7 +134,7 @@
   color: var(--ink-3);
 }
 
-/* Panels and overlays inherited from v1 use this. On paper it is a plain white card. */
+/* Panels and overlays inherited from v1 use this. A plain card in both themes. */
 .glass {
   background: var(--bg-1);
   backdrop-filter: none;
