@@ -133,3 +133,13 @@ Record anything the next agent would otherwise have to rediscover.
   React keeps the DOM node when `current` flips, so width/opacity/border TRANSITION and
   the card visibly folds to its title instead of swapping. Disclosures animate height via
   the grid-template-rows 0fr→1fr trick — children stay mounted, nothing is measured.
+- 2026-08-05 — STORY MODE IS A SLIDE DECK, not a growing strip. The zig-zag storyboard
+  (chips at alternating heights, a card under every past step) scattered the eye and
+  filled the stage with dead space. Now: a single chain rail across the top — one pill
+  per visited node, gliding one notch left per hop via an imperative transform — and the
+  current step's card centre stage, sliding in keyed on step.id. The SHELL never moves;
+  only the canvas animates. Composition is identical on every step.
+- 2026-08-05 — In story mode the rail is machine state first, packet after, one flowing
+  column. The pinned-bottom split (packet top, stretchy void, state pinned) read as a
+  hole in the UI. Map mode keeps the pinned layout because the explanation lives in the
+  rail there and competes for the same column.

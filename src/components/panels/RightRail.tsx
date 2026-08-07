@@ -59,29 +59,39 @@ export function RightRail() {
       ].join(' ')}
     >
       {/* ── desktop ─────────────────────────────────────────────────────────── */}
-      <div className="hidden min-h-0 flex-1 flex-col lg:flex">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {/*
-            In story mode the explanation already lives on the card under its node, so
-            repeating it here would be the same words twice on one screen. The rail keeps
-            what the card does not carry: the packet and the machine state.
-          */}
-          {!storyMode && <ExplainPanel />}
-          <PacketInspector />
-        </div>
-        {/*
-          Pinned. `shrink-0` + `max-h` makes this take min(its natural height, half the
-          rail): it never grows past what the widgets need, and never eats the
-          explanation. Scrollable with no focusable children, so it owns a tab stop.
-        */}
-        <div
-          tabIndex={0}
-          aria-label="Machine state"
-          className="max-h-[50%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
-        >
+      {storyMode ? (
+        /*
+         * Story mode: the explanation lives on the slide, so the rail is pure
+         * instrumentation — machine state first (always meaningful), packet after.
+         * One flowing column; no pinned split, because a pinned bottom box with a
+         * stretchy void above it is a hole, not a layout.
+         */
+        <div className="hidden min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain lg:flex">
           <OsStatePanel />
+          <div className="border-t border-line">
+            <PacketInspector />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="hidden min-h-0 flex-1 flex-col lg:flex">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <ExplainPanel />
+            <PacketInspector />
+          </div>
+          {/*
+            Pinned. `shrink-0` + `max-h` makes this take min(its natural height, half the
+            rail): it never grows past what the widgets need, and never eats the
+            explanation. Scrollable with no focusable children, so it owns a tab stop.
+          */}
+          <div
+            tabIndex={0}
+            aria-label="Machine state"
+            className="max-h-[50%] shrink-0 overflow-y-auto overscroll-contain border-t border-line bg-[color-mix(in_oklab,var(--bg-0)_45%,transparent)]"
+          >
+            <OsStatePanel />
+          </div>
+        </div>
+      )}
 
       {/* ── bottom sheet (under lg) ─────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col lg:hidden">

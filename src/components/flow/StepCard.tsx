@@ -6,54 +6,28 @@ import { MODE_LABEL, modeColor, modeFill } from '@/scene/modeColors';
 import { CodePane } from '@/components/panels/CodePane';
 
 /**
- * One station's explanation, hanging under its node. This replaces the old right rail:
- * the words belong next to the thing they describe, not in a sidebar the eye has to
- * travel to.
- *
- * One <article>, two states. React keeps the DOM node when `current` flips, so the
- * width/opacity/border changes TRANSITION instead of swapping — the card visibly folds
- * down to its title when the story moves on, and unfolds if you step back.
+ * The slide: one step's full explanation. FlowCanvas renders exactly one of these,
+ * centre stage, keyed on step.id — the deck metaphor lives in the parent; this card
+ * only has to read well.
  */
-export function StepCard({ step, current }: { step: Step; current: boolean }) {
+export function StepCard({ step }: { step: Step }) {
   const ink = modeColor(step.mode);
 
   return (
     <article
       data-step-card={step.id}
-      aria-current={current ? 'step' : undefined}
-      className={[
-        'flex shrink-0 flex-col overflow-hidden rounded-[var(--r-lg)] border bg-bg-1',
-        'transition-[width,max-height,opacity,border-color,box-shadow] duration-500',
-        current
-          ? 'max-h-[calc(100vh-16rem)] w-[400px] overflow-y-auto p-5'
-          : 'max-h-40 w-[230px] p-3.5 opacity-60 hover:opacity-100',
-      ].join(' ')}
-      style={{
-        borderColor: current ? ink : 'var(--line)',
-        boxShadow: current ? 'var(--shadow-lift)' : 'var(--shadow-card)',
-        transitionTimingFunction: 'var(--ease-out)',
-        animation: current ? 'vsa-card-in var(--t-flow) var(--ease-out) both' : undefined,
-      }}
+      aria-current="step"
+      className="flex min-h-0 w-full flex-col overflow-y-auto rounded-[var(--r-lg)] border bg-bg-1 p-6"
+      style={{ borderColor: ink, boxShadow: 'var(--shadow-lift)' }}
     >
-      {current ? <FullCard step={step} ink={ink} /> : <MiniCard step={step} />}
+      <FullCard step={step} ink={ink} />
     </article>
-  );
-}
-
-function MiniCard({ step }: { step: Step }) {
-  return (
-    <h2
-      className="text-[13px] font-medium leading-snug text-ink-2"
-      style={{ animation: 'vsa-fade-in var(--t-ui) var(--ease-out) both' }}
-    >
-      {step.title}
-    </h2>
   );
 }
 
 function FullCard({ step, ink }: { step: Step; ink: string }) {
   return (
-    <div style={{ animation: 'vsa-fade-in var(--t-ui) var(--ease-out) both' }}>
+    <div>
       <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.01em] text-ink-1">
         {step.title}
       </h2>
